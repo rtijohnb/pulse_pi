@@ -174,14 +174,24 @@ extern "C" int publisher_main(int domainId, int sample_count)
     DDS_InstanceHandle_t instance_handle = DDS_HANDLE_NIL;
     const char *type_name = NULL;
     int count = 0;  
-    DDS_Duration_t send_period = {4,0};
+    DDS_Duration_t send_period = {1,0};
+    DDS_Duration_t send_period2 = {6,0};
+    char * strtoraw;
+    int pos;
 
     /* Serial port variables */
-	int i, n,
-	cport_nr = 16,        /* /dev/ttyS0 (COM1 on windows) */
-	bdrate = 9600;       /* 9600 baud */
-	unsigned char buf[4096];
-	char mode[] = { '8','N','1',0 };
+    int i, n,
+    cport_nr = 16,        /* /dev/ttyUSB0 */
+    bdrate = 115200;       /* 115200 baud */
+    char buf[4096];
+    char mode[] = { '8','N','1',0 };
+
+    /* Initialize serial port */
+    if (RS232_OpenComport(cport_nr, bdrate, mode, 0))
+    {
+	printf("Can not open comport\n");
+	return(0);
+    }
 
 
     /* Set up the DDS Participant */
@@ -344,93 +354,108 @@ extern "C" int publisher_main(int domainId, int sample_count)
 
 	/* Create data sample for writing */
 	PatientConfigInstance = RTI_PATIENT_PatientConfigTypeSupport::create_data();
-    if (PatientConfigInstance == NULL) {
-        fprintf(stderr, "RTI_PATIENT_PatientConfigTypeSupport::create_data error\n");
-		DDS_entities_shutdown(participant);
-        return -1;
-    }
-
-    /* For a data type that has a key, if the same instance is going to be
-    written multiple times, initialize the key here
-    and register the keyed instance prior to writing */
-
-    // instance_handle = RTI_PATIENT_PatientConfig_writer->register_instance(*instance);
-
-	/* Initialize serial port */
-	if (RS232_OpenComport(cport_nr, bdrate, mode, 0))
-	{
-		printf("Can not open comport\n");
-
-		return(0);
+	if (PatientConfigInstance == NULL) {
+		fprintf(stderr, "RTI_PATIENT_PatientConfigTypeSupport::create_data error\n");
+			DDS_entities_shutdown(participant);
+		return -1;
 	}
 
+	/* For a data type that has a key, if the same instance is going to be
+	written multiple times, initialize the key here
+	and register the keyed instance prior to writing */
+
+	// instance_handle = RTI_PATIENT_PatientConfig_writer->register_instance(*instance);
+
 	/* Initialize PatientInfo data */
-	PatientInfoInstance->Id = "199";
+	PatientInfoInstance->Id.Id = (char *)"199";
 	PatientInfoInstance->Age = 33;
-	PatientInfoInstance->FirstName = "Charles";
-	PatientInfoInstance->LastName = "Xavier";
+	PatientInfoInstance->FirstName = (char *)"Charles";
+	PatientInfoInstance->LastName = (char *)"Xavier";
 	PatientInfoInstance->HeightCm = 180;
-	PatientInfoInstance->Sex = "male";
+	PatientInfoInstance->Sex = (char *)"male";
 	PatientInfoInstance->WeightKg = 90;
 
 	/* Send PatientInfo */
+	printf("Writing PatientInfo\n");
 	retcode = RTI_PATIENT_PatientInfo_writer->write(*PatientInfoInstance, instance_handle);
 	if (retcode != DDS_RETCODE_OK) {
 		fprintf(stderr, "write error %d\n", retcode);
 	}
+	RTI_PATIENT_PatientInfoTypeSupport::print_data(PatientInfoInstance);
+	NDDSUtility::sleep(send_period2);
 
-    /* Main loop */
-    for (count=0; (sample_count == 0) || (count < sample_count); ++count) {
+	/* Main loop */
+	for (count = 0; (sample_count == 0) || (count < sample_count); ++count) 
+	{
 
 		/* Read from serial port */
-		n = RS232_PollComport(cport_nr, buf, 4095);
-
-		if (n > 0)
+		n = 0;
+		n = RS232_PollComport(cport_nr, (unsigned char *)buf, 1024);
+		printf("Read %d characters from serial port\n", n);
+		/* Make sure that \n is at the end of the string */
+		buf[n] = 0;
+		printf("buf = %s", buf);
+		
+		PatientPulseInstance->readings.length(100);  // Set the length		
+		
+		i=0;
+		strtoraw = strtok(buf,"raw:");
+		while(strtoraw != NULL)
 		{
-			buf[n] = 0;   /* always put a "null" at the end of a string! */
-
-			for (i = 0; i < n; i++)
-			{
-				if (buf[i] < 32)  /* replace unreadable control-codes by dots */
-				{
-					buf[i] = '.';
-				}
+			if (i > 0) 
+			{	
+				PatientPulseInstance->readings[i] = atoi(strtoraw);
+				printf("PatientPulseInstance->readings[%d]= %d\n",i,PatientPulseInstance->readings[i]);
+				/* Send alarm if data outside of boutns */
+				if ((PatientPulseInstance->readings[i] > PatientConfigInstance->PulseHighThreshold) || 
+				    (PatientPulseInstance->readings[i] < PatientConfigInstance->PulseLowThreshold))
+					printf("ALARM: pulse reading surpased thresholds\n");				
 			}
-
-			printf("received %i bytes: %s\n", n, (char *)buf);
+			strtoraw = strtok(NULL,"a\n");
+			strtoraw = strtok(NULL,"raw:");
+			i++;
 		}
+		PatientPulseInstance->readings[i] = 0;
 
-        printf("Writing RTI_PATIENT_PatientPulse, count %d\n", count);
-
-		/* Check the Patient Config */
+		printf("Writing RTI_PATIENT_PatientPulse, size %d\n", i);
+		
+		/* Record the BPM (hardcode for now) */
+		PatientPulseInstance->bpm = 80;
+		
+		/* Send */
 		i = 0;
-		while (PatientPulseInstance->readings[i] != NULL)
+		while (PatientPulseInstance->readings[i] != 0)
 		{
 			if (PatientPulseInstance->readings[i] > PatientConfigInstance->PulseHighThreshold)  PatientPulseInstance->readings[i] = PatientConfigInstance->PulseHighThreshold;
 			if (PatientPulseInstance->readings[i] < PatientConfigInstance->PulseLowThreshold)  PatientPulseInstance->readings[i] = PatientConfigInstance->PulseLowThreshold;
 			i++;
+
+		}
+		/* Write that Patient Pulse data */
+		retcode = RTI_PATIENT_PatientPulse_writer->write(*PatientPulseInstance, instance_handle);
+		if (retcode != DDS_RETCODE_OK) {
+			fprintf(stderr, "write error %d\n", retcode);
 		}
 
-        /* Modify the pulse data to be sent here */
+			/* Send PatientInfo */
+		retcode = RTI_PATIENT_PatientInfo_writer->write(*PatientInfoInstance, instance_handle);
+		if (retcode != DDS_RETCODE_OK) {
+			fprintf(stderr, "write error %d\n", retcode);
+		}
 
-		/* Write that Patient Pulse data */
-        retcode = RTI_PATIENT_PatientPulse_writer->write(*PatientPulseInstance, instance_handle);
+
+		NDDSUtility::sleep(send_period);
+	}
+
+        /*
+        retcode = RTI_PATIENT_PatientConfig_writer->unregister_instance(
+		*instance, instance_handle);
         if (retcode != DDS_RETCODE_OK) {
-            fprintf(stderr, "write error %d\n", retcode);
+		fprintf(stderr, "unregister instance error %d\n", retcode);
         }
+        */
 
-        NDDSUtility::sleep(send_period);
-    }
-
-    /*
-    retcode = RTI_PATIENT_PatientConfig_writer->unregister_instance(
-        *instance, instance_handle);
-    if (retcode != DDS_RETCODE_OK) {
-        fprintf(stderr, "unregister instance error %d\n", retcode);
-    }
-    */
-
-    /* Delete data sample */
+        /* Delete data sample */
 	retcode = RTI_PATIENT_PatientPulseTypeSupport::delete_data(PatientPulseInstance);
 	if (retcode != DDS_RETCODE_OK) {
 		fprintf(stderr, "RTI_PATIENT_PatientConfigTypeSupport::delete_data error %d\n", retcode);
@@ -447,7 +472,7 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	}
 
 	/* Delete all entities */
-    return DDS_entities_shutdown(participant);
+	return DDS_entities_shutdown(participant);
 }
 
 int main(int argc, char *argv[])
