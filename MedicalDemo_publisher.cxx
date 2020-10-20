@@ -38,6 +38,8 @@ add and remove them dynamically from the domain.
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctime>
+#include <iostream>
 
 #include "MedicalDemo.h"
 #include "MedicalDemoSupport.h"
@@ -175,9 +177,8 @@ extern "C" int publisher_main(int domainId, int sample_count)
     const char *type_name = NULL;
     int count = 0;  
     DDS_Duration_t send_period = {1,0};
-    DDS_Duration_t send_period2 = {6,0};
     char * strtoraw;
-    int pos;
+    int series_size;
 
     /* Serial port variables */
     int i, n,
@@ -374,6 +375,10 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	PatientInfoInstance->HeightCm = 180;
 	PatientInfoInstance->Sex = (char *)"male";
 	PatientInfoInstance->WeightKg = 90;
+	
+	/* Initialize the PatientConfig values */
+	PatientConfigInstance->PulseHighThreshold = 1000;
+	PatientConfigInstance->PulseLowThreshold = 0;
 
 	/* Send PatientInfo */
 	printf("Writing PatientInfo\n");
@@ -382,55 +387,51 @@ extern "C" int publisher_main(int domainId, int sample_count)
 		fprintf(stderr, "write error %d\n", retcode);
 	}
 	RTI_PATIENT_PatientInfoTypeSupport::print_data(PatientInfoInstance);
-	NDDSUtility::sleep(send_period2);
+	NDDSUtility::sleep(send_period);
 
 	/* Main loop */
 	for (count = 0; (sample_count == 0) || (count < sample_count); ++count) 
 	{
-
+		PatientPulseInstance->readings.length(100);  // Set the length		
 		/* Read from serial port */
 		n = 0;
-		n = RS232_PollComport(cport_nr, (unsigned char *)buf, 1024);
+		n = RS232_PollComport(cport_nr, (unsigned char *)buf, 3440);
 		printf("Read %d characters from serial port\n", n);
 		/* Make sure that \n is at the end of the string */
 		buf[n] = 0;
-		printf("buf = %s", buf);
-		
-		PatientPulseInstance->readings.length(100);  // Set the length		
-		
-		i=0;
+		printf("buf = %s \n", buf);
 		strtoraw = strtok(buf,"raw:");
+		i = 0;
 		while(strtoraw != NULL)
-		{
-			if (i > 0) 
+		{	
+			if (i >= 0 && atoi(strtoraw) > 0) 
 			{	
 				PatientPulseInstance->readings[i] = atoi(strtoraw);
 				printf("PatientPulseInstance->readings[%d]= %d\n",i,PatientPulseInstance->readings[i]);
 				/* Send alarm if data outside of boutns */
 				if ((PatientPulseInstance->readings[i] > PatientConfigInstance->PulseHighThreshold) || 
-				    (PatientPulseInstance->readings[i] < PatientConfigInstance->PulseLowThreshold))
+				(PatientPulseInstance->readings[i] < PatientConfigInstance->PulseLowThreshold))
 					printf("ALARM: pulse reading surpased thresholds\n");				
 			}
 			strtoraw = strtok(NULL,"a\n");
 			strtoraw = strtok(NULL,"raw:");
 			i++;
 		}
-		PatientPulseInstance->readings[i] = 0;
-
-		printf("Writing RTI_PATIENT_PatientPulse, size %d\n", i);
+		PatientPulseInstance->readings.length(i);
+		series_size = i;
+		printf("i= %i \n",i);
+		PatientPulseInstance->timestamp = time(NULL);
+		PatientPulseInstance->Id.Id = PatientInfoInstance->Id.Id;
+		std::cout<<"timestamp= "<<PatientPulseInstance->timestamp<<'\n';
+		PatientPulseInstance->bpm = 80;  // hardcode for now
 		
-		/* Record the BPM (hardcode for now) */
-		PatientPulseInstance->bpm = 80;
-		
-		/* Send */
-		i = 0;
-		while (PatientPulseInstance->readings[i] != 0)
+		/* Check if the data is out of range */
+		for (i = 0;i<series_size;i++)
 		{
 			if (PatientPulseInstance->readings[i] > PatientConfigInstance->PulseHighThreshold)  PatientPulseInstance->readings[i] = PatientConfigInstance->PulseHighThreshold;
 			if (PatientPulseInstance->readings[i] < PatientConfigInstance->PulseLowThreshold)  PatientPulseInstance->readings[i] = PatientConfigInstance->PulseLowThreshold;
-			i++;
-
 		}
+		
 		/* Write that Patient Pulse data */
 		retcode = RTI_PATIENT_PatientPulse_writer->write(*PatientPulseInstance, instance_handle);
 		if (retcode != DDS_RETCODE_OK) {
