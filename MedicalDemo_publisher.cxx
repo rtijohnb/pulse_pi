@@ -182,7 +182,7 @@ extern "C" int publisher_main(int domainId, int sample_count)
 
     /* Serial port variables */
     int i, n,
-    cport_nr = 16,        /* /dev/ttyUSB0 */
+    cport_nr = 24,        /* /dev/ttyUSB0 */
     bdrate = 115200;       /* 115200 baud */
     char buf[4096];
     char mode[] = { '8','N','1',0 };
@@ -395,28 +395,32 @@ extern "C" int publisher_main(int domainId, int sample_count)
 		PatientPulseInstance->readings.length(100);  // Set the length		
 		/* Read from serial port */
 		n = 0;
-		n = RS232_PollComport(cport_nr, (unsigned char *)buf, 3440);
+		n = RS232_PollComport(cport_nr, (unsigned char *)buf, 3000);
 		printf("Read %d characters from serial port\n", n);
 		/* Make sure that \n is at the end of the string */
 		buf[n] = 0;
 		printf("buf = %s \n", buf);
 		strtoraw = strtok(buf,"raw:");
+		/* skip the first sample */
+		strtoraw = strtok(NULL,"a\n");
+		strtoraw = strtok(NULL,"raw:");		
 		i = 0;
 		while(strtoraw != NULL)
 		{	
-			if (i >= 0 && atoi(strtoraw) > 0) 
+			if (atoi(strtoraw) > 0) 
 			{	
 				PatientPulseInstance->readings[i] = atoi(strtoraw);
 				printf("PatientPulseInstance->readings[%d]= %d\n",i,PatientPulseInstance->readings[i]);
 				/* Send alarm if data outside of boutns */
 				if ((PatientPulseInstance->readings[i] > PatientConfigInstance->PulseHighThreshold) || 
 				(PatientPulseInstance->readings[i] < PatientConfigInstance->PulseLowThreshold))
-					printf("ALARM: pulse reading surpased thresholds\n");				
+					printf("ALARM: pulse reading surpased thresholds\n");
+				i++;
 			}
 			strtoraw = strtok(NULL,"a\n");
 			strtoraw = strtok(NULL,"raw:");
-			i++;
 		}
+
 		PatientPulseInstance->readings.length(i);
 		series_size = i;
 		printf("i= %i \n",i);
@@ -424,14 +428,7 @@ extern "C" int publisher_main(int domainId, int sample_count)
 		PatientPulseInstance->Id.Id = PatientInfoInstance->Id.Id;
 		std::cout<<"timestamp= "<<PatientPulseInstance->timestamp<<'\n';
 		PatientPulseInstance->bpm = 80;  // hardcode for now
-		
-		/* Check if the data is out of range */
-		for (i = 0;i<series_size;i++)
-		{
-			if (PatientPulseInstance->readings[i] > PatientConfigInstance->PulseHighThreshold)  PatientPulseInstance->readings[i] = PatientConfigInstance->PulseHighThreshold;
-			if (PatientPulseInstance->readings[i] < PatientConfigInstance->PulseLowThreshold)  PatientPulseInstance->readings[i] = PatientConfigInstance->PulseLowThreshold;
-		}
-		
+				
 		/* Write that Patient Pulse data */
 		retcode = RTI_PATIENT_PatientPulse_writer->write(*PatientPulseInstance, instance_handle);
 		if (retcode != DDS_RETCODE_OK) {
