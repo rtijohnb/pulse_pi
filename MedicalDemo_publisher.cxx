@@ -49,6 +49,56 @@ add and remove them dynamically from the domain.
 
 
 
+
+char *
+str_escape(char str[])
+{
+    char chr[3];
+    char *buffer = (char *)malloc(sizeof(char));
+    buffer[0] = '\0';
+    unsigned int len = 1, blk_size;
+
+    while (*str != '\0') {
+        blk_size = 3;
+        switch (*str) {
+            case '\n':
+                strcpy(chr, "\\n");
+                break;
+            case '\t':
+                strcpy(chr, "\\t");
+                break;
+            case '\v':
+                strcpy(chr, "\\v");
+                break;
+            case '\f':
+                strcpy(chr, "\\f");
+                break;
+            case '\a':
+                strcpy(chr, "\\a");
+                break;
+            case '\b':
+                strcpy(chr, "\\b");
+                break;
+            case '\r':
+                strcpy(chr, "\\r");
+                break;
+            default:
+                sprintf(chr, "%c", *str);
+                blk_size = 1;
+                break;
+        }
+        len += blk_size;
+        buffer = (char *)realloc(buffer, len * sizeof(char));
+        strcat(buffer, chr);
+        ++str;
+    }
+    return buffer;
+}
+
+
+
+
+
 class RTI_PATIENT_PatientConfigListener : public DDSDataReaderListener {
 public:
 	virtual void on_requested_deadline_missed(
@@ -176,16 +226,20 @@ extern "C" int publisher_main(int domainId, int sample_count)
     DDS_InstanceHandle_t instance_handle = DDS_HANDLE_NIL;
     const char *type_name = NULL;
     int count = 0;  
-    DDS_Duration_t send_period = {1,0};
-    char * strtoraw;
-    int series_size;
+    DDS_Duration_t send_period = {0,40000000};
+    char * str_work_buffer;
+    char * whole_line_pointer;
+    char * temp_pointer;
+    char remaining_line[500];
+    bool partial_line;
 
     /* Serial port variables */
     int i, n,
-    cport_nr = 24,        /* /dev/ttyUSB0 */
+    cport_nr = 24,        /* 16 for/dev/ttyUSB0, 24 for /dev/ttyACM0*/
     bdrate = 115200;       /* 115200 baud */
-    char buf[4096];
-    char mode[] = { '8','N','1',0 };
+    char buf[500];
+    char save_buf[500];
+    char mode[] = { '8','N','1',0};
 
     /* Initialize serial port */
     if (RS232_OpenComport(cport_nr, bdrate, mode, 0))
@@ -378,7 +432,7 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	
 	/* Initialize the PatientConfig values */
 	PatientConfigInstance->PulseHighThreshold = 1000;
-	PatientConfigInstance->PulseLowThreshold = 0;
+	PatientConfigInstance->PulseLowThreshold = 1;
 
 	/* Send PatientInfo */
 	printf("Writing PatientInfo\n");
@@ -390,57 +444,112 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	NDDSUtility::sleep(send_period);
 
 	/* Main loop */
+  int lines_to_read = 7;
+  int char_per_line = 35;
+  int sequence_size = PatientPulseInstance->readings.maximum();
+  printf("Sequence size = %d\n", sequence_size);
+  
+	i = 0;
+  partial_line = false;
 	for (count = 0; (sample_count == 0) || (count < sample_count); ++count) 
 	{
-		PatientPulseInstance->readings.length(100);  // Set the length		
-		/* Read from serial port */
-		n = 0;
-		n = RS232_PollComport(cport_nr, (unsigned char *)buf, 3000);
-		printf("Read %d characters from serial port\n", n);
-		/* Make sure that \n is at the end of the string */
-		buf[n] = 0;
-		printf("buf = %s \n", buf);
-		strtoraw = strtok(buf,"raw:");
-		/* skip the first sample */
-		strtoraw = strtok(NULL,"a\n");
-		strtoraw = strtok(NULL,"raw:");		
-		i = 0;
-		while(strtoraw != NULL)
-		{	
-			if (atoi(strtoraw) > 0) 
-			{	
-				PatientPulseInstance->readings[i] = atoi(strtoraw);
-				printf("PatientPulseInstance->readings[%d]= %d\n",i,PatientPulseInstance->readings[i]);
-				/* Send alarm if data outside of boutns */
-				if ((PatientPulseInstance->readings[i] > PatientConfigInstance->PulseHighThreshold) || 
-				(PatientPulseInstance->readings[i] < PatientConfigInstance->PulseLowThreshold))
-					printf("ALARM: pulse reading surpased thresholds\n");
-				i++;
-			}
-			strtoraw = strtok(NULL,"a\n");
-			strtoraw = strtok(NULL,"raw:");
-		}
+		  PatientPulseInstance->readings.length(sequence_size);  // Set the length		
+		  /* Read from serial port */
+		  n = RS232_PollComport(cport_nr, (unsigned char *)buf, lines_to_read * char_per_line);   // 245 = 7 samples * 35 (string size)
 
-		PatientPulseInstance->readings.length(i);
-		series_size = i;
-		printf("i= %i \n",i);
-		PatientPulseInstance->timestamp = time(NULL);
-		PatientPulseInstance->Id.Id = PatientInfoInstance->Id.Id;
-		std::cout<<"timestamp= "<<PatientPulseInstance->timestamp<<'\n';
-		PatientPulseInstance->bpm = 80;  // hardcode for now
+		  printf("Read %d characters from serial port\n", n);
+		  /* Make sure that \n is at the end of the string */
+		  buf[n] = '\0';
+      strcpy(save_buf, buf);
+      save_buf[n] = '\0';
+		  printf("buf = \n%s \n", str_escape(buf));
+   
+      /* See if we have to append a leftover line from the last iteration */
+      if (partial_line)
+      {
+          partial_line = false;
+          strcat(remaining_line, buf);
+          strcpy(buf, remaining_line);
+          printf("\n--------- added line -----------\n %s", buf);
+      }
+    
+      /* Get the first line from the buffer */
+      whole_line_pointer = (char *)save_buf;
+      str_work_buffer = strtok(buf,"raw: ");
+      printf("str_work_buffer = %s\n", str_work_buffer);
+       
+      /* Process each line of data */
+		  while(str_work_buffer != NULL)
+		  {
+//          printf("whole_line_pointer(inside) = %s\n", whole_line_pointer);
+//          printf("str_work_buffer(inside) = %s\n", str_work_buffer);          
+        
+          /* we have a good string so parse it*/                
+			    if (atoi(str_work_buffer) >= 0  && (strstr(whole_line_pointer,"\n") != NULL))
+			    {	
+				      PatientPulseInstance->readings[i] = atoi(str_work_buffer);
+				      printf("PatientPulseInstance->readings[%d]= %d\n",i,PatientPulseInstance->readings[i]);
+				      /* Send alarm if data outside of boutns */
+				      if ((PatientPulseInstance->readings[i] > PatientConfigInstance->PulseHighThreshold) || 
+				          (PatientPulseInstance->readings[i] < PatientConfigInstance->PulseLowThreshold))
+              {
+					          printf("ALARM: pulse reading surpased thresholds\n");
+                   exit(1);
+              }
+				      i++;
+              /* Skip to the end of the line */
+			        str_work_buffer = strtok(NULL,"\n");          
+			        str_work_buffer = strtok(NULL,"raw:");
+              /* point to the start of the new line */
+              whole_line_pointer = strstr(whole_line_pointer,"\n");
+              whole_line_pointer = whole_line_pointer + 1;                                            
+			    }
+          else if (strstr(whole_line_pointer,"\n") == NULL)
+          {
+               /* No new line at the end of the string so save it and append to the next line */
+               partial_line = true;
+//               printf("amount to copy = %d\n",strlen(whole_line_pointer));
+               strcpy(remaining_line, whole_line_pointer);
+               printf("\n\n--------------- saving remaining_line -------------\n remaining_line = %s\n", remaining_line);
+               str_work_buffer = NULL;
+          }
+          else
+          {
+              /*  if we are skipping over characters that we don't want to send */
+              str_work_buffer = strtok(NULL,"\n");          
+			        str_work_buffer = strtok(NULL,"raw:");
+              /* point to the start of the new line */
+              whole_line_pointer = strstr(whole_line_pointer,"\n");
+              whole_line_pointer = whole_line_pointer + 1;                    
+          }
+                             
+		  }
+
+		  printf("i= %i \n",i);
+      if (i >= sequence_size-lines_to_read)
+		  {
+		      printf("total sequence size = %d \n",i);
+    		  PatientPulseInstance->readings.length(i);
+          PatientPulseInstance->timestamp = time(NULL);
+		      PatientPulseInstance->Id.Id = PatientInfoInstance->Id.Id;
+		      std::cout<<"timestamp= "<<PatientPulseInstance->timestamp<<'\n';
 				
-		/* Write that Patient Pulse data */
-		retcode = RTI_PATIENT_PatientPulse_writer->write(*PatientPulseInstance, instance_handle);
-		if (retcode != DDS_RETCODE_OK) {
-			fprintf(stderr, "write error %d\n", retcode);
-		}
+		      /* Write that Patient Pulse data */
+		      retcode = RTI_PATIENT_PatientPulse_writer->write(*PatientPulseInstance, instance_handle);
+		      if (retcode != DDS_RETCODE_OK) {
+			        fprintf(stderr, "write error %d\n", retcode);
+		      }
+          i = 0;
+        
+          /* Send PatientInfo */
+		      retcode = RTI_PATIENT_PatientInfo_writer->write(*PatientInfoInstance, instance_handle);
+		      if (retcode != DDS_RETCODE_OK) {
+			        fprintf(stderr, "write error %d\n", retcode);
+		      }
 
-			/* Send PatientInfo */
-		retcode = RTI_PATIENT_PatientInfo_writer->write(*PatientInfoInstance, instance_handle);
-		if (retcode != DDS_RETCODE_OK) {
-			fprintf(stderr, "write error %d\n", retcode);
-		}
-
+        
+      }
+    
 
 		NDDSUtility::sleep(send_period);
 	}
