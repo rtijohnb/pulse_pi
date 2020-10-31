@@ -9,8 +9,8 @@ For more information, type 'rtiddsgen -help' at a command shell
 or consult the RTI Connext manual.
 */
 
-#ifndef MedicalDemoPlugin_1585937757_h
-#define MedicalDemoPlugin_1585937757_h
+#ifndef MedicalDemoPlugin_1585937706_h
+#define MedicalDemoPlugin_1585937706_h
 
 #include "MedicalDemo.h"
 
@@ -1747,10 +1747,29 @@ extern "C" {
         RTIEncapsulationId encapsulation_id,
         unsigned int current_alignment);
 
+    /* The type used to store keys for instances of type struct
+    * AnotherSimple.
+    *
+    * By default, this type is struct PatientPulse
+    * itself. However, if for some reason this choice is not practical for your
+    * system (e.g. if sizeof(struct PatientPulse)
+    * is very large), you may redefine this typedef in terms of another type of
+    * your choosing. HOWEVER, if you define the KeyHolder type to be something
+    * other than struct AnotherSimple, the
+    * following restriction applies: the key of struct
+    * PatientPulse must consist of a
+    * single field of your redefined KeyHolder type and that field must be the
+    * first field in struct PatientPulse.
+    */
+    typedef  class RTI_PATIENT_PatientPulse RTI_PATIENT_PatientPulseKeyHolder;
+
     #define RTI_PATIENT_PatientPulsePlugin_get_sample PRESTypePluginDefaultEndpointData_getSample 
 
     #define RTI_PATIENT_PatientPulsePlugin_get_buffer PRESTypePluginDefaultEndpointData_getBuffer 
     #define RTI_PATIENT_PatientPulsePlugin_return_buffer PRESTypePluginDefaultEndpointData_returnBuffer
+
+    #define RTI_PATIENT_PatientPulsePlugin_get_key PRESTypePluginDefaultEndpointData_getKey 
+    #define RTI_PATIENT_PatientPulsePlugin_return_key PRESTypePluginDefaultEndpointData_returnKey
 
     #define RTI_PATIENT_PatientPulsePlugin_create_sample PRESTypePluginDefaultEndpointData_createSample 
     #define RTI_PATIENT_PatientPulsePlugin_destroy_sample PRESTypePluginDefaultEndpointData_deleteSample 
@@ -1792,6 +1811,20 @@ extern "C" {
         const RTI_PATIENT_PatientPulse *sample,
         const char *desc,
         unsigned int indent);
+
+    NDDSUSERDllExport extern RTI_PATIENT_PatientPulse*
+    RTI_PATIENT_PatientPulsePluginSupport_create_key_ex(RTIBool allocate_pointers);
+
+    NDDSUSERDllExport extern RTI_PATIENT_PatientPulse*
+    RTI_PATIENT_PatientPulsePluginSupport_create_key(void);
+
+    NDDSUSERDllExport extern void 
+    RTI_PATIENT_PatientPulsePluginSupport_destroy_key_ex(
+        RTI_PATIENT_PatientPulseKeyHolder *key,RTIBool deallocate_pointers);
+
+    NDDSUSERDllExport extern void 
+    RTI_PATIENT_PatientPulsePluginSupport_destroy_key(
+        RTI_PATIENT_PatientPulseKeyHolder *key);
 
     /* ----------------------------------------------------------------------------
     Callback functions:
@@ -1909,6 +1942,33 @@ extern "C" {
         RTIBool deserialize_key,
         void *endpoint_plugin_qos);
 
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientPulsePlugin_instance_to_key(
+        PRESTypePluginEndpointData endpoint_data,
+        RTI_PATIENT_PatientPulseKeyHolder *key, 
+        const RTI_PATIENT_PatientPulse *instance);
+
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientPulsePlugin_key_to_instance(
+        PRESTypePluginEndpointData endpoint_data,
+        RTI_PATIENT_PatientPulse *instance, 
+        const RTI_PATIENT_PatientPulseKeyHolder *key);
+
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientPulsePlugin_instance_to_keyhash(
+        PRESTypePluginEndpointData endpoint_data,
+        DDS_KeyHash_t *keyhash,
+        const RTI_PATIENT_PatientPulse *instance,
+        RTIEncapsulationId encapsulationId);
+
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientPulsePlugin_serialized_sample_to_keyhash(
+        PRESTypePluginEndpointData endpoint_data,
+        struct RTICdrStream *stream, 
+        DDS_KeyHash_t *keyhash,
+        RTIBool deserialize_encapsulation,
+        void *endpoint_plugin_qos); 
+
     NDDSUSERDllExport extern
     struct RTIXCdrInterpreterPrograms *RTI_PATIENT_PatientPulsePlugin_get_programs();
 
@@ -1919,10 +1979,29 @@ extern "C" {
     NDDSUSERDllExport extern void
     RTI_PATIENT_PatientPulsePlugin_delete(struct PRESTypePlugin *);
 
+    /* The type used to store keys for instances of type struct
+    * AnotherSimple.
+    *
+    * By default, this type is struct PatientInfo
+    * itself. However, if for some reason this choice is not practical for your
+    * system (e.g. if sizeof(struct PatientInfo)
+    * is very large), you may redefine this typedef in terms of another type of
+    * your choosing. HOWEVER, if you define the KeyHolder type to be something
+    * other than struct AnotherSimple, the
+    * following restriction applies: the key of struct
+    * PatientInfo must consist of a
+    * single field of your redefined KeyHolder type and that field must be the
+    * first field in struct PatientInfo.
+    */
+    typedef  class RTI_PATIENT_PatientInfo RTI_PATIENT_PatientInfoKeyHolder;
+
     #define RTI_PATIENT_PatientInfoPlugin_get_sample PRESTypePluginDefaultEndpointData_getSample 
 
     #define RTI_PATIENT_PatientInfoPlugin_get_buffer PRESTypePluginDefaultEndpointData_getBuffer 
     #define RTI_PATIENT_PatientInfoPlugin_return_buffer PRESTypePluginDefaultEndpointData_returnBuffer
+
+    #define RTI_PATIENT_PatientInfoPlugin_get_key PRESTypePluginDefaultEndpointData_getKey 
+    #define RTI_PATIENT_PatientInfoPlugin_return_key PRESTypePluginDefaultEndpointData_returnKey
 
     #define RTI_PATIENT_PatientInfoPlugin_create_sample PRESTypePluginDefaultEndpointData_createSample 
     #define RTI_PATIENT_PatientInfoPlugin_destroy_sample PRESTypePluginDefaultEndpointData_deleteSample 
@@ -1964,6 +2043,20 @@ extern "C" {
         const RTI_PATIENT_PatientInfo *sample,
         const char *desc,
         unsigned int indent);
+
+    NDDSUSERDllExport extern RTI_PATIENT_PatientInfo*
+    RTI_PATIENT_PatientInfoPluginSupport_create_key_ex(RTIBool allocate_pointers);
+
+    NDDSUSERDllExport extern RTI_PATIENT_PatientInfo*
+    RTI_PATIENT_PatientInfoPluginSupport_create_key(void);
+
+    NDDSUSERDllExport extern void 
+    RTI_PATIENT_PatientInfoPluginSupport_destroy_key_ex(
+        RTI_PATIENT_PatientInfoKeyHolder *key,RTIBool deallocate_pointers);
+
+    NDDSUSERDllExport extern void 
+    RTI_PATIENT_PatientInfoPluginSupport_destroy_key(
+        RTI_PATIENT_PatientInfoKeyHolder *key);
 
     /* ----------------------------------------------------------------------------
     Callback functions:
@@ -2081,6 +2174,33 @@ extern "C" {
         RTIBool deserialize_key,
         void *endpoint_plugin_qos);
 
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientInfoPlugin_instance_to_key(
+        PRESTypePluginEndpointData endpoint_data,
+        RTI_PATIENT_PatientInfoKeyHolder *key, 
+        const RTI_PATIENT_PatientInfo *instance);
+
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientInfoPlugin_key_to_instance(
+        PRESTypePluginEndpointData endpoint_data,
+        RTI_PATIENT_PatientInfo *instance, 
+        const RTI_PATIENT_PatientInfoKeyHolder *key);
+
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientInfoPlugin_instance_to_keyhash(
+        PRESTypePluginEndpointData endpoint_data,
+        DDS_KeyHash_t *keyhash,
+        const RTI_PATIENT_PatientInfo *instance,
+        RTIEncapsulationId encapsulationId);
+
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientInfoPlugin_serialized_sample_to_keyhash(
+        PRESTypePluginEndpointData endpoint_data,
+        struct RTICdrStream *stream, 
+        DDS_KeyHash_t *keyhash,
+        RTIBool deserialize_encapsulation,
+        void *endpoint_plugin_qos); 
+
     NDDSUSERDllExport extern
     struct RTIXCdrInterpreterPrograms *RTI_PATIENT_PatientInfoPlugin_get_programs();
 
@@ -2091,10 +2211,29 @@ extern "C" {
     NDDSUSERDllExport extern void
     RTI_PATIENT_PatientInfoPlugin_delete(struct PRESTypePlugin *);
 
+    /* The type used to store keys for instances of type struct
+    * AnotherSimple.
+    *
+    * By default, this type is struct PatientConfig
+    * itself. However, if for some reason this choice is not practical for your
+    * system (e.g. if sizeof(struct PatientConfig)
+    * is very large), you may redefine this typedef in terms of another type of
+    * your choosing. HOWEVER, if you define the KeyHolder type to be something
+    * other than struct AnotherSimple, the
+    * following restriction applies: the key of struct
+    * PatientConfig must consist of a
+    * single field of your redefined KeyHolder type and that field must be the
+    * first field in struct PatientConfig.
+    */
+    typedef  class RTI_PATIENT_PatientConfig RTI_PATIENT_PatientConfigKeyHolder;
+
     #define RTI_PATIENT_PatientConfigPlugin_get_sample PRESTypePluginDefaultEndpointData_getSample 
 
     #define RTI_PATIENT_PatientConfigPlugin_get_buffer PRESTypePluginDefaultEndpointData_getBuffer 
     #define RTI_PATIENT_PatientConfigPlugin_return_buffer PRESTypePluginDefaultEndpointData_returnBuffer
+
+    #define RTI_PATIENT_PatientConfigPlugin_get_key PRESTypePluginDefaultEndpointData_getKey 
+    #define RTI_PATIENT_PatientConfigPlugin_return_key PRESTypePluginDefaultEndpointData_returnKey
 
     #define RTI_PATIENT_PatientConfigPlugin_create_sample PRESTypePluginDefaultEndpointData_createSample 
     #define RTI_PATIENT_PatientConfigPlugin_destroy_sample PRESTypePluginDefaultEndpointData_deleteSample 
@@ -2136,6 +2275,20 @@ extern "C" {
         const RTI_PATIENT_PatientConfig *sample,
         const char *desc,
         unsigned int indent);
+
+    NDDSUSERDllExport extern RTI_PATIENT_PatientConfig*
+    RTI_PATIENT_PatientConfigPluginSupport_create_key_ex(RTIBool allocate_pointers);
+
+    NDDSUSERDllExport extern RTI_PATIENT_PatientConfig*
+    RTI_PATIENT_PatientConfigPluginSupport_create_key(void);
+
+    NDDSUSERDllExport extern void 
+    RTI_PATIENT_PatientConfigPluginSupport_destroy_key_ex(
+        RTI_PATIENT_PatientConfigKeyHolder *key,RTIBool deallocate_pointers);
+
+    NDDSUSERDllExport extern void 
+    RTI_PATIENT_PatientConfigPluginSupport_destroy_key(
+        RTI_PATIENT_PatientConfigKeyHolder *key);
 
     /* ----------------------------------------------------------------------------
     Callback functions:
@@ -2253,6 +2406,33 @@ extern "C" {
         RTIBool deserialize_key,
         void *endpoint_plugin_qos);
 
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientConfigPlugin_instance_to_key(
+        PRESTypePluginEndpointData endpoint_data,
+        RTI_PATIENT_PatientConfigKeyHolder *key, 
+        const RTI_PATIENT_PatientConfig *instance);
+
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientConfigPlugin_key_to_instance(
+        PRESTypePluginEndpointData endpoint_data,
+        RTI_PATIENT_PatientConfig *instance, 
+        const RTI_PATIENT_PatientConfigKeyHolder *key);
+
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientConfigPlugin_instance_to_keyhash(
+        PRESTypePluginEndpointData endpoint_data,
+        DDS_KeyHash_t *keyhash,
+        const RTI_PATIENT_PatientConfig *instance,
+        RTIEncapsulationId encapsulationId);
+
+    NDDSUSERDllExport extern RTIBool 
+    RTI_PATIENT_PatientConfigPlugin_serialized_sample_to_keyhash(
+        PRESTypePluginEndpointData endpoint_data,
+        struct RTICdrStream *stream, 
+        DDS_KeyHash_t *keyhash,
+        RTIBool deserialize_encapsulation,
+        void *endpoint_plugin_qos); 
+
     NDDSUSERDllExport extern
     struct RTIXCdrInterpreterPrograms *RTI_PATIENT_PatientConfigPlugin_get_programs();
 
@@ -2272,5 +2452,5 @@ extern "C" {
 #define NDDSUSERDllExport
 #endif
 
-#endif /* MedicalDemoPlugin_1585937757_h */
+#endif /* MedicalDemoPlugin_1585937706_h */
 

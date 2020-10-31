@@ -5594,8 +5594,13 @@ RTI_PATIENT_PatientPulsePluginSupport_print_data(
         return;
     }
 
-    RTI_PATIENT__patient_id_tPluginSupport_print_data(
-        (const RTI_PATIENT__patient_id_t*) &sample->Id, "Id", indent_level + 1);
+    if (sample->Id==NULL) {
+        RTICdrType_printString(
+            NULL,"Id", indent_level + 1);
+    } else {
+        RTICdrType_printString(
+            sample->Id,"Id", indent_level + 1);    
+    }
 
     RTICdrType_printLongLong(
         &sample->timestamp, "timestamp", indent_level + 1);    
@@ -5617,6 +5622,41 @@ RTI_PATIENT_PatientPulsePluginSupport_print_data(
 
     RTICdrType_printOctet(
         &sample->bpm, "bpm", indent_level + 1);    
+
+}
+
+RTI_PATIENT_PatientPulse *
+RTI_PATIENT_PatientPulsePluginSupport_create_key_ex(RTIBool allocate_pointers){
+    RTI_PATIENT_PatientPulse *key = NULL;
+
+    key = new (std::nothrow) RTI_PATIENT_PatientPulseKeyHolder ;
+
+    RTI_PATIENT_PatientPulse_initialize_ex(key,allocate_pointers, RTI_TRUE);
+
+    return key;
+}
+
+RTI_PATIENT_PatientPulse *
+RTI_PATIENT_PatientPulsePluginSupport_create_key(void)
+{
+    return  RTI_PATIENT_PatientPulsePluginSupport_create_key_ex(RTI_TRUE);
+}
+
+void 
+RTI_PATIENT_PatientPulsePluginSupport_destroy_key_ex(
+    RTI_PATIENT_PatientPulseKeyHolder *key,RTIBool deallocate_pointers)
+{
+    RTI_PATIENT_PatientPulse_finalize_ex(key,deallocate_pointers);
+
+    delete  key;
+    key=NULL;
+}
+
+void 
+RTI_PATIENT_PatientPulsePluginSupport_destroy_key(
+    RTI_PATIENT_PatientPulseKeyHolder *key) {
+
+    RTI_PATIENT_PatientPulsePluginSupport_destroy_key_ex(key,RTI_TRUE);
 
 }
 
@@ -5695,6 +5735,9 @@ RTI_PATIENT_PatientPulsePlugin_on_endpoint_attached(
     PRESTypePluginEndpointData epd = NULL;
     unsigned int serializedSampleMaxSize = 0;
 
+    unsigned int serializedKeyMaxSize = 0;
+    unsigned int serializedKeyMaxSizeV2 = 0;
+
     if (top_level_registration) {} /* To avoid warnings */
     if (containerPluginContext) {} /* To avoid warnings */
 
@@ -5709,11 +5752,30 @@ RTI_PATIENT_PatientPulsePlugin_on_endpoint_attached(
         RTI_PATIENT_PatientPulsePluginSupport_create_data,
         (PRESTypePluginDefaultEndpointDataDestroySampleFunction)
         RTI_PATIENT_PatientPulsePluginSupport_destroy_data,
-        NULL , NULL );
+        (PRESTypePluginDefaultEndpointDataCreateKeyFunction)
+        RTI_PATIENT_PatientPulsePluginSupport_create_key ,            (PRESTypePluginDefaultEndpointDataDestroyKeyFunction)
+        RTI_PATIENT_PatientPulsePluginSupport_destroy_key);
 
     if (epd == NULL) {
         return NULL;
     } 
+
+    serializedKeyMaxSize =  RTI_PATIENT_PatientPulsePlugin_get_serialized_key_max_size(
+        epd,RTI_FALSE,RTI_CDR_ENCAPSULATION_ID_CDR_BE,0);
+    serializedKeyMaxSizeV2 =  RTI_PATIENT_PatientPulsePlugin_get_serialized_key_max_size_for_keyhash(
+        epd,
+        RTI_CDR_ENCAPSULATION_ID_CDR2_BE,
+        0);
+
+    if(!PRESTypePluginDefaultEndpointData_createMD5StreamWithInfo(
+        epd,
+        endpoint_info,
+        serializedKeyMaxSize,
+        serializedKeyMaxSizeV2))  
+    {
+        PRESTypePluginDefaultEndpointData_delete(epd);
+        return NULL;
+    }
 
     if (endpoint_info->endpointKind == PRES_TYPEPLUGIN_ENDPOINT_WRITER) {
         serializedSampleMaxSize = RTI_PATIENT_PatientPulsePlugin_get_serialized_sample_max_size(
@@ -6015,7 +6077,7 @@ Key Management functions:
 PRESTypePluginKeyKind 
 RTI_PATIENT_PatientPulsePlugin_get_key_kind(void)
 {
-    return PRES_TYPEPLUGIN_NO_KEY;
+    return PRES_TYPEPLUGIN_USER_KEY;
 }
 
 RTIBool RTI_PATIENT_PatientPulsePlugin_deserialize_key(
@@ -6078,6 +6140,171 @@ RTI_PATIENT_PatientPulsePlugin_get_serialized_key_max_size_for_keyhash(
     }
 
     return size;
+}
+
+RTIBool 
+RTI_PATIENT_PatientPulsePlugin_instance_to_key(
+    PRESTypePluginEndpointData endpoint_data,
+    RTI_PATIENT_PatientPulseKeyHolder *dst, 
+    const RTI_PATIENT_PatientPulse *src)
+{
+    if (endpoint_data) {} /* To avoid warnings */   
+
+    if (!RTICdrType_copyStringEx (
+        &dst->Id, src->Id, 
+        (32) + 1, RTI_FALSE)){
+        return RTI_FALSE;
+    }
+    return RTI_TRUE;
+}
+
+RTIBool 
+RTI_PATIENT_PatientPulsePlugin_key_to_instance(
+    PRESTypePluginEndpointData endpoint_data,
+    RTI_PATIENT_PatientPulse *dst, const
+    RTI_PATIENT_PatientPulseKeyHolder *src)
+{
+    if (endpoint_data) {} /* To avoid warnings */   
+    if (!RTICdrType_copyStringEx (
+        &dst->Id, src->Id, 
+        (32) + 1, RTI_FALSE)){
+        return RTI_FALSE;
+    }
+    return RTI_TRUE;
+}
+
+RTIBool 
+RTI_PATIENT_PatientPulsePlugin_instance_to_keyhash(
+    PRESTypePluginEndpointData endpoint_data,
+    DDS_KeyHash_t *keyhash,
+    const RTI_PATIENT_PatientPulse *instance,
+    RTIEncapsulationId encapsulationId)
+{
+    struct RTICdrStream * md5Stream = NULL;
+    struct RTICdrStreamState cdrState;
+    char * buffer = NULL;
+    RTIXCdrBoolean iCdrv2;
+
+    iCdrv2 = RTIXCdrEncapsulationId_isCdrV2(encapsulationId);
+    RTICdrStreamState_init(&cdrState);
+    md5Stream = PRESTypePluginDefaultEndpointData_getMD5Stream(endpoint_data);
+
+    if (md5Stream == NULL) {
+        return RTI_FALSE;
+    }
+
+    RTICdrStream_resetPosition(md5Stream);
+    RTICdrStream_setDirtyBit(md5Stream, RTI_TRUE);
+
+    if (!PRESTypePlugin_interpretedSerializeKeyForKeyhash(
+        endpoint_data,
+        instance,
+        md5Stream,
+        iCdrv2?
+        RTI_CDR_ENCAPSULATION_ID_CDR2_BE:
+        RTI_CDR_ENCAPSULATION_ID_CDR_BE,
+        NULL)) 
+    {
+        int size;
+
+        RTICdrStream_pushState(md5Stream, &cdrState, -1);
+
+        size = (int)PRESTypePlugin_interpretedGetSerializedSampleSize(
+            endpoint_data,
+            RTI_FALSE,
+            iCdrv2?
+            RTI_CDR_ENCAPSULATION_ID_CDR2_BE:
+            RTI_CDR_ENCAPSULATION_ID_CDR_BE,
+            0,
+            instance);
+
+        if (size <= RTICdrStream_getBufferLength(md5Stream)) {
+            RTICdrStream_popState(md5Stream, &cdrState);        
+            return RTI_FALSE;
+        }   
+
+        RTIOsapiHeap_allocateBuffer(&buffer,size,0);
+
+        if (buffer == NULL) {
+            RTICdrStream_popState(md5Stream, &cdrState);
+            return RTI_FALSE;
+        }
+
+        RTICdrStream_set(md5Stream, buffer, size);
+        RTIOsapiMemory_zero(
+            RTICdrStream_getBuffer(md5Stream),
+            RTICdrStream_getBufferLength(md5Stream));
+        RTICdrStream_resetPosition(md5Stream);
+        RTICdrStream_setDirtyBit(md5Stream, RTI_TRUE);
+        if (!PRESTypePlugin_interpretedSerializeKeyForKeyhash(
+            endpoint_data,
+            instance,
+            md5Stream, 
+            iCdrv2?
+            RTI_CDR_ENCAPSULATION_ID_CDR2_BE:
+            RTI_CDR_ENCAPSULATION_ID_CDR_BE,
+            NULL)) 
+        {
+            RTICdrStream_popState(md5Stream, &cdrState);
+            RTIOsapiHeap_freeBuffer(buffer);
+            return RTI_FALSE;
+        }        
+    }   
+
+    if (PRESTypePluginDefaultEndpointData_getMaxSizeSerializedKey(endpoint_data, iCdrv2) > 
+    (unsigned int)(MIG_RTPS_KEY_HASH_MAX_LENGTH) ||
+    PRESTypePluginDefaultEndpointData_forceMD5KeyHash(endpoint_data)) {
+        RTICdrStream_computeMD5(md5Stream, keyhash->value);
+    } else {
+        RTIOsapiMemory_zero(keyhash->value,MIG_RTPS_KEY_HASH_MAX_LENGTH);
+        RTIOsapiMemory_copy(
+            keyhash->value, 
+            RTICdrStream_getBuffer(md5Stream), 
+            RTICdrStream_getCurrentPositionOffset(md5Stream));
+    }
+
+    keyhash->length = MIG_RTPS_KEY_HASH_MAX_LENGTH;
+
+    if (buffer != NULL) {
+        RTICdrStream_popState(md5Stream, &cdrState);
+        RTIOsapiHeap_freeBuffer(buffer);
+    }
+
+    return RTI_TRUE;
+}
+
+RTIBool 
+RTI_PATIENT_PatientPulsePlugin_serialized_sample_to_keyhash(
+    PRESTypePluginEndpointData endpoint_data,
+    struct RTICdrStream *stream, 
+    DDS_KeyHash_t *keyhash,
+    RTIBool deserialize_encapsulation,
+    void *endpoint_plugin_qos) 
+{   
+    RTI_PATIENT_PatientPulse * sample = NULL;
+    sample = (RTI_PATIENT_PatientPulse *)
+    PRESTypePluginDefaultEndpointData_getTempSample(endpoint_data);
+    if (sample == NULL) {
+        return RTI_FALSE;
+    }
+
+    if (!PRESTypePlugin_interpretedSerializedSampleToKey(
+        endpoint_data,
+        sample,
+        stream, 
+        deserialize_encapsulation, 
+        RTI_TRUE,
+        endpoint_plugin_qos)) {
+        return RTI_FALSE;
+    }
+    if (!RTI_PATIENT_PatientPulsePlugin_instance_to_keyhash(
+        endpoint_data, 
+        keyhash, 
+        sample,
+        RTICdrStream_getEncapsulationKind(stream))) {
+        return RTI_FALSE;
+    }
+    return RTI_TRUE;
 }
 
 struct RTIXCdrInterpreterPrograms *RTI_PATIENT_PatientPulsePlugin_get_programs()
@@ -6153,19 +6380,40 @@ struct PRESTypePlugin *RTI_PATIENT_PatientPulsePlugin_new(void)
     (PRESTypePluginGetKeyKindFunction)
     RTI_PATIENT_PatientPulsePlugin_get_key_kind;
 
-    /* These functions are only used for keyed types. As this is not a keyed
-    type they are all set to NULL
-    */
-    plugin->serializeKeyFnc = NULL ;    
-    plugin->deserializeKeyFnc = NULL;  
-    plugin->getKeyFnc = NULL;
-    plugin->returnKeyFnc = NULL;
-    plugin->instanceToKeyFnc = NULL;
-    plugin->keyToInstanceFnc = NULL;
-    plugin->getSerializedKeyMaxSizeFnc = NULL;
-    plugin->instanceToKeyHashFnc = NULL;
-    plugin->serializedSampleToKeyHashFnc = NULL;
-    plugin->serializedKeyToKeyHashFnc = NULL;    
+    plugin->getSerializedKeyMaxSizeFnc =   
+    (PRESTypePluginGetSerializedKeyMaxSizeFunction)
+    RTI_PATIENT_PatientPulsePlugin_get_serialized_key_max_size;
+    plugin->serializeKeyFnc =
+    (PRESTypePluginSerializeKeyFunction)
+    PRESTypePlugin_interpretedSerializeKey;
+    plugin->deserializeKeyFnc =
+    (PRESTypePluginDeserializeKeyFunction)
+    RTI_PATIENT_PatientPulsePlugin_deserialize_key;
+    plugin->deserializeKeySampleFnc =
+    (PRESTypePluginDeserializeKeySampleFunction)
+    PRESTypePlugin_interpretedDeserializeKey;
+
+    plugin-> instanceToKeyHashFnc = 
+    (PRESTypePluginInstanceToKeyHashFunction)
+    RTI_PATIENT_PatientPulsePlugin_instance_to_keyhash;
+    plugin->serializedSampleToKeyHashFnc = 
+    (PRESTypePluginSerializedSampleToKeyHashFunction)
+    RTI_PATIENT_PatientPulsePlugin_serialized_sample_to_keyhash;
+
+    plugin->getKeyFnc =
+    (PRESTypePluginGetKeyFunction)
+    RTI_PATIENT_PatientPulsePlugin_get_key;
+    plugin->returnKeyFnc =
+    (PRESTypePluginReturnKeyFunction)
+    RTI_PATIENT_PatientPulsePlugin_return_key;
+
+    plugin->instanceToKeyFnc =
+    (PRESTypePluginInstanceToKeyFunction)
+    RTI_PATIENT_PatientPulsePlugin_instance_to_key;
+    plugin->keyToInstanceFnc =
+    (PRESTypePluginKeyToInstanceFunction)
+    RTI_PATIENT_PatientPulsePlugin_key_to_instance;
+    plugin->serializedKeyToKeyHashFnc = NULL; /* Not supported yet */
     #ifdef NDDS_STANDALONE_TYPE
     plugin->typeCode = NULL; 
     #else
@@ -6309,8 +6557,13 @@ RTI_PATIENT_PatientInfoPluginSupport_print_data(
         return;
     }
 
-    RTI_PATIENT__patient_id_tPluginSupport_print_data(
-        (const RTI_PATIENT__patient_id_t*) &sample->Id, "Id", indent_level + 1);
+    if (sample->Id==NULL) {
+        RTICdrType_printString(
+            NULL,"Id", indent_level + 1);
+    } else {
+        RTICdrType_printString(
+            sample->Id,"Id", indent_level + 1);    
+    }
 
     if (sample->FirstName==NULL) {
         RTICdrType_printString(
@@ -6344,6 +6597,41 @@ RTI_PATIENT_PatientInfoPluginSupport_print_data(
         RTICdrType_printString(
             sample->Sex,"Sex", indent_level + 1);    
     }
+
+}
+
+RTI_PATIENT_PatientInfo *
+RTI_PATIENT_PatientInfoPluginSupport_create_key_ex(RTIBool allocate_pointers){
+    RTI_PATIENT_PatientInfo *key = NULL;
+
+    key = new (std::nothrow) RTI_PATIENT_PatientInfoKeyHolder ;
+
+    RTI_PATIENT_PatientInfo_initialize_ex(key,allocate_pointers, RTI_TRUE);
+
+    return key;
+}
+
+RTI_PATIENT_PatientInfo *
+RTI_PATIENT_PatientInfoPluginSupport_create_key(void)
+{
+    return  RTI_PATIENT_PatientInfoPluginSupport_create_key_ex(RTI_TRUE);
+}
+
+void 
+RTI_PATIENT_PatientInfoPluginSupport_destroy_key_ex(
+    RTI_PATIENT_PatientInfoKeyHolder *key,RTIBool deallocate_pointers)
+{
+    RTI_PATIENT_PatientInfo_finalize_ex(key,deallocate_pointers);
+
+    delete  key;
+    key=NULL;
+}
+
+void 
+RTI_PATIENT_PatientInfoPluginSupport_destroy_key(
+    RTI_PATIENT_PatientInfoKeyHolder *key) {
+
+    RTI_PATIENT_PatientInfoPluginSupport_destroy_key_ex(key,RTI_TRUE);
 
 }
 
@@ -6422,6 +6710,9 @@ RTI_PATIENT_PatientInfoPlugin_on_endpoint_attached(
     PRESTypePluginEndpointData epd = NULL;
     unsigned int serializedSampleMaxSize = 0;
 
+    unsigned int serializedKeyMaxSize = 0;
+    unsigned int serializedKeyMaxSizeV2 = 0;
+
     if (top_level_registration) {} /* To avoid warnings */
     if (containerPluginContext) {} /* To avoid warnings */
 
@@ -6436,11 +6727,30 @@ RTI_PATIENT_PatientInfoPlugin_on_endpoint_attached(
         RTI_PATIENT_PatientInfoPluginSupport_create_data,
         (PRESTypePluginDefaultEndpointDataDestroySampleFunction)
         RTI_PATIENT_PatientInfoPluginSupport_destroy_data,
-        NULL , NULL );
+        (PRESTypePluginDefaultEndpointDataCreateKeyFunction)
+        RTI_PATIENT_PatientInfoPluginSupport_create_key ,            (PRESTypePluginDefaultEndpointDataDestroyKeyFunction)
+        RTI_PATIENT_PatientInfoPluginSupport_destroy_key);
 
     if (epd == NULL) {
         return NULL;
     } 
+
+    serializedKeyMaxSize =  RTI_PATIENT_PatientInfoPlugin_get_serialized_key_max_size(
+        epd,RTI_FALSE,RTI_CDR_ENCAPSULATION_ID_CDR_BE,0);
+    serializedKeyMaxSizeV2 =  RTI_PATIENT_PatientInfoPlugin_get_serialized_key_max_size_for_keyhash(
+        epd,
+        RTI_CDR_ENCAPSULATION_ID_CDR2_BE,
+        0);
+
+    if(!PRESTypePluginDefaultEndpointData_createMD5StreamWithInfo(
+        epd,
+        endpoint_info,
+        serializedKeyMaxSize,
+        serializedKeyMaxSizeV2))  
+    {
+        PRESTypePluginDefaultEndpointData_delete(epd);
+        return NULL;
+    }
 
     if (endpoint_info->endpointKind == PRES_TYPEPLUGIN_ENDPOINT_WRITER) {
         serializedSampleMaxSize = RTI_PATIENT_PatientInfoPlugin_get_serialized_sample_max_size(
@@ -6742,7 +7052,7 @@ Key Management functions:
 PRESTypePluginKeyKind 
 RTI_PATIENT_PatientInfoPlugin_get_key_kind(void)
 {
-    return PRES_TYPEPLUGIN_NO_KEY;
+    return PRES_TYPEPLUGIN_USER_KEY;
 }
 
 RTIBool RTI_PATIENT_PatientInfoPlugin_deserialize_key(
@@ -6805,6 +7115,171 @@ RTI_PATIENT_PatientInfoPlugin_get_serialized_key_max_size_for_keyhash(
     }
 
     return size;
+}
+
+RTIBool 
+RTI_PATIENT_PatientInfoPlugin_instance_to_key(
+    PRESTypePluginEndpointData endpoint_data,
+    RTI_PATIENT_PatientInfoKeyHolder *dst, 
+    const RTI_PATIENT_PatientInfo *src)
+{
+    if (endpoint_data) {} /* To avoid warnings */   
+
+    if (!RTICdrType_copyStringEx (
+        &dst->Id, src->Id, 
+        (32) + 1, RTI_FALSE)){
+        return RTI_FALSE;
+    }
+    return RTI_TRUE;
+}
+
+RTIBool 
+RTI_PATIENT_PatientInfoPlugin_key_to_instance(
+    PRESTypePluginEndpointData endpoint_data,
+    RTI_PATIENT_PatientInfo *dst, const
+    RTI_PATIENT_PatientInfoKeyHolder *src)
+{
+    if (endpoint_data) {} /* To avoid warnings */   
+    if (!RTICdrType_copyStringEx (
+        &dst->Id, src->Id, 
+        (32) + 1, RTI_FALSE)){
+        return RTI_FALSE;
+    }
+    return RTI_TRUE;
+}
+
+RTIBool 
+RTI_PATIENT_PatientInfoPlugin_instance_to_keyhash(
+    PRESTypePluginEndpointData endpoint_data,
+    DDS_KeyHash_t *keyhash,
+    const RTI_PATIENT_PatientInfo *instance,
+    RTIEncapsulationId encapsulationId)
+{
+    struct RTICdrStream * md5Stream = NULL;
+    struct RTICdrStreamState cdrState;
+    char * buffer = NULL;
+    RTIXCdrBoolean iCdrv2;
+
+    iCdrv2 = RTIXCdrEncapsulationId_isCdrV2(encapsulationId);
+    RTICdrStreamState_init(&cdrState);
+    md5Stream = PRESTypePluginDefaultEndpointData_getMD5Stream(endpoint_data);
+
+    if (md5Stream == NULL) {
+        return RTI_FALSE;
+    }
+
+    RTICdrStream_resetPosition(md5Stream);
+    RTICdrStream_setDirtyBit(md5Stream, RTI_TRUE);
+
+    if (!PRESTypePlugin_interpretedSerializeKeyForKeyhash(
+        endpoint_data,
+        instance,
+        md5Stream,
+        iCdrv2?
+        RTI_CDR_ENCAPSULATION_ID_CDR2_BE:
+        RTI_CDR_ENCAPSULATION_ID_CDR_BE,
+        NULL)) 
+    {
+        int size;
+
+        RTICdrStream_pushState(md5Stream, &cdrState, -1);
+
+        size = (int)PRESTypePlugin_interpretedGetSerializedSampleSize(
+            endpoint_data,
+            RTI_FALSE,
+            iCdrv2?
+            RTI_CDR_ENCAPSULATION_ID_CDR2_BE:
+            RTI_CDR_ENCAPSULATION_ID_CDR_BE,
+            0,
+            instance);
+
+        if (size <= RTICdrStream_getBufferLength(md5Stream)) {
+            RTICdrStream_popState(md5Stream, &cdrState);        
+            return RTI_FALSE;
+        }   
+
+        RTIOsapiHeap_allocateBuffer(&buffer,size,0);
+
+        if (buffer == NULL) {
+            RTICdrStream_popState(md5Stream, &cdrState);
+            return RTI_FALSE;
+        }
+
+        RTICdrStream_set(md5Stream, buffer, size);
+        RTIOsapiMemory_zero(
+            RTICdrStream_getBuffer(md5Stream),
+            RTICdrStream_getBufferLength(md5Stream));
+        RTICdrStream_resetPosition(md5Stream);
+        RTICdrStream_setDirtyBit(md5Stream, RTI_TRUE);
+        if (!PRESTypePlugin_interpretedSerializeKeyForKeyhash(
+            endpoint_data,
+            instance,
+            md5Stream, 
+            iCdrv2?
+            RTI_CDR_ENCAPSULATION_ID_CDR2_BE:
+            RTI_CDR_ENCAPSULATION_ID_CDR_BE,
+            NULL)) 
+        {
+            RTICdrStream_popState(md5Stream, &cdrState);
+            RTIOsapiHeap_freeBuffer(buffer);
+            return RTI_FALSE;
+        }        
+    }   
+
+    if (PRESTypePluginDefaultEndpointData_getMaxSizeSerializedKey(endpoint_data, iCdrv2) > 
+    (unsigned int)(MIG_RTPS_KEY_HASH_MAX_LENGTH) ||
+    PRESTypePluginDefaultEndpointData_forceMD5KeyHash(endpoint_data)) {
+        RTICdrStream_computeMD5(md5Stream, keyhash->value);
+    } else {
+        RTIOsapiMemory_zero(keyhash->value,MIG_RTPS_KEY_HASH_MAX_LENGTH);
+        RTIOsapiMemory_copy(
+            keyhash->value, 
+            RTICdrStream_getBuffer(md5Stream), 
+            RTICdrStream_getCurrentPositionOffset(md5Stream));
+    }
+
+    keyhash->length = MIG_RTPS_KEY_HASH_MAX_LENGTH;
+
+    if (buffer != NULL) {
+        RTICdrStream_popState(md5Stream, &cdrState);
+        RTIOsapiHeap_freeBuffer(buffer);
+    }
+
+    return RTI_TRUE;
+}
+
+RTIBool 
+RTI_PATIENT_PatientInfoPlugin_serialized_sample_to_keyhash(
+    PRESTypePluginEndpointData endpoint_data,
+    struct RTICdrStream *stream, 
+    DDS_KeyHash_t *keyhash,
+    RTIBool deserialize_encapsulation,
+    void *endpoint_plugin_qos) 
+{   
+    RTI_PATIENT_PatientInfo * sample = NULL;
+    sample = (RTI_PATIENT_PatientInfo *)
+    PRESTypePluginDefaultEndpointData_getTempSample(endpoint_data);
+    if (sample == NULL) {
+        return RTI_FALSE;
+    }
+
+    if (!PRESTypePlugin_interpretedSerializedSampleToKey(
+        endpoint_data,
+        sample,
+        stream, 
+        deserialize_encapsulation, 
+        RTI_TRUE,
+        endpoint_plugin_qos)) {
+        return RTI_FALSE;
+    }
+    if (!RTI_PATIENT_PatientInfoPlugin_instance_to_keyhash(
+        endpoint_data, 
+        keyhash, 
+        sample,
+        RTICdrStream_getEncapsulationKind(stream))) {
+        return RTI_FALSE;
+    }
+    return RTI_TRUE;
 }
 
 struct RTIXCdrInterpreterPrograms *RTI_PATIENT_PatientInfoPlugin_get_programs()
@@ -6880,19 +7355,40 @@ struct PRESTypePlugin *RTI_PATIENT_PatientInfoPlugin_new(void)
     (PRESTypePluginGetKeyKindFunction)
     RTI_PATIENT_PatientInfoPlugin_get_key_kind;
 
-    /* These functions are only used for keyed types. As this is not a keyed
-    type they are all set to NULL
-    */
-    plugin->serializeKeyFnc = NULL ;    
-    plugin->deserializeKeyFnc = NULL;  
-    plugin->getKeyFnc = NULL;
-    plugin->returnKeyFnc = NULL;
-    plugin->instanceToKeyFnc = NULL;
-    plugin->keyToInstanceFnc = NULL;
-    plugin->getSerializedKeyMaxSizeFnc = NULL;
-    plugin->instanceToKeyHashFnc = NULL;
-    plugin->serializedSampleToKeyHashFnc = NULL;
-    plugin->serializedKeyToKeyHashFnc = NULL;    
+    plugin->getSerializedKeyMaxSizeFnc =   
+    (PRESTypePluginGetSerializedKeyMaxSizeFunction)
+    RTI_PATIENT_PatientInfoPlugin_get_serialized_key_max_size;
+    plugin->serializeKeyFnc =
+    (PRESTypePluginSerializeKeyFunction)
+    PRESTypePlugin_interpretedSerializeKey;
+    plugin->deserializeKeyFnc =
+    (PRESTypePluginDeserializeKeyFunction)
+    RTI_PATIENT_PatientInfoPlugin_deserialize_key;
+    plugin->deserializeKeySampleFnc =
+    (PRESTypePluginDeserializeKeySampleFunction)
+    PRESTypePlugin_interpretedDeserializeKey;
+
+    plugin-> instanceToKeyHashFnc = 
+    (PRESTypePluginInstanceToKeyHashFunction)
+    RTI_PATIENT_PatientInfoPlugin_instance_to_keyhash;
+    plugin->serializedSampleToKeyHashFnc = 
+    (PRESTypePluginSerializedSampleToKeyHashFunction)
+    RTI_PATIENT_PatientInfoPlugin_serialized_sample_to_keyhash;
+
+    plugin->getKeyFnc =
+    (PRESTypePluginGetKeyFunction)
+    RTI_PATIENT_PatientInfoPlugin_get_key;
+    plugin->returnKeyFnc =
+    (PRESTypePluginReturnKeyFunction)
+    RTI_PATIENT_PatientInfoPlugin_return_key;
+
+    plugin->instanceToKeyFnc =
+    (PRESTypePluginInstanceToKeyFunction)
+    RTI_PATIENT_PatientInfoPlugin_instance_to_key;
+    plugin->keyToInstanceFnc =
+    (PRESTypePluginKeyToInstanceFunction)
+    RTI_PATIENT_PatientInfoPlugin_key_to_instance;
+    plugin->serializedKeyToKeyHashFnc = NULL; /* Not supported yet */
     #ifdef NDDS_STANDALONE_TYPE
     plugin->typeCode = NULL; 
     #else
@@ -7036,14 +7532,54 @@ RTI_PATIENT_PatientConfigPluginSupport_print_data(
         return;
     }
 
-    RTI_PATIENT__patient_id_tPluginSupport_print_data(
-        (const RTI_PATIENT__patient_id_t*) &sample->Id, "Id", indent_level + 1);
+    if (sample->Id==NULL) {
+        RTICdrType_printString(
+            NULL,"Id", indent_level + 1);
+    } else {
+        RTICdrType_printString(
+            sample->Id,"Id", indent_level + 1);    
+    }
 
     RTICdrType_printUnsignedLong(
         &sample->PulseHighThreshold, "PulseHighThreshold", indent_level + 1);    
 
     RTICdrType_printUnsignedLong(
         &sample->PulseLowThreshold, "PulseLowThreshold", indent_level + 1);    
+
+}
+
+RTI_PATIENT_PatientConfig *
+RTI_PATIENT_PatientConfigPluginSupport_create_key_ex(RTIBool allocate_pointers){
+    RTI_PATIENT_PatientConfig *key = NULL;
+
+    key = new (std::nothrow) RTI_PATIENT_PatientConfigKeyHolder ;
+
+    RTI_PATIENT_PatientConfig_initialize_ex(key,allocate_pointers, RTI_TRUE);
+
+    return key;
+}
+
+RTI_PATIENT_PatientConfig *
+RTI_PATIENT_PatientConfigPluginSupport_create_key(void)
+{
+    return  RTI_PATIENT_PatientConfigPluginSupport_create_key_ex(RTI_TRUE);
+}
+
+void 
+RTI_PATIENT_PatientConfigPluginSupport_destroy_key_ex(
+    RTI_PATIENT_PatientConfigKeyHolder *key,RTIBool deallocate_pointers)
+{
+    RTI_PATIENT_PatientConfig_finalize_ex(key,deallocate_pointers);
+
+    delete  key;
+    key=NULL;
+}
+
+void 
+RTI_PATIENT_PatientConfigPluginSupport_destroy_key(
+    RTI_PATIENT_PatientConfigKeyHolder *key) {
+
+    RTI_PATIENT_PatientConfigPluginSupport_destroy_key_ex(key,RTI_TRUE);
 
 }
 
@@ -7122,6 +7658,9 @@ RTI_PATIENT_PatientConfigPlugin_on_endpoint_attached(
     PRESTypePluginEndpointData epd = NULL;
     unsigned int serializedSampleMaxSize = 0;
 
+    unsigned int serializedKeyMaxSize = 0;
+    unsigned int serializedKeyMaxSizeV2 = 0;
+
     if (top_level_registration) {} /* To avoid warnings */
     if (containerPluginContext) {} /* To avoid warnings */
 
@@ -7136,11 +7675,30 @@ RTI_PATIENT_PatientConfigPlugin_on_endpoint_attached(
         RTI_PATIENT_PatientConfigPluginSupport_create_data,
         (PRESTypePluginDefaultEndpointDataDestroySampleFunction)
         RTI_PATIENT_PatientConfigPluginSupport_destroy_data,
-        NULL , NULL );
+        (PRESTypePluginDefaultEndpointDataCreateKeyFunction)
+        RTI_PATIENT_PatientConfigPluginSupport_create_key ,            (PRESTypePluginDefaultEndpointDataDestroyKeyFunction)
+        RTI_PATIENT_PatientConfigPluginSupport_destroy_key);
 
     if (epd == NULL) {
         return NULL;
     } 
+
+    serializedKeyMaxSize =  RTI_PATIENT_PatientConfigPlugin_get_serialized_key_max_size(
+        epd,RTI_FALSE,RTI_CDR_ENCAPSULATION_ID_CDR_BE,0);
+    serializedKeyMaxSizeV2 =  RTI_PATIENT_PatientConfigPlugin_get_serialized_key_max_size_for_keyhash(
+        epd,
+        RTI_CDR_ENCAPSULATION_ID_CDR2_BE,
+        0);
+
+    if(!PRESTypePluginDefaultEndpointData_createMD5StreamWithInfo(
+        epd,
+        endpoint_info,
+        serializedKeyMaxSize,
+        serializedKeyMaxSizeV2))  
+    {
+        PRESTypePluginDefaultEndpointData_delete(epd);
+        return NULL;
+    }
 
     if (endpoint_info->endpointKind == PRES_TYPEPLUGIN_ENDPOINT_WRITER) {
         serializedSampleMaxSize = RTI_PATIENT_PatientConfigPlugin_get_serialized_sample_max_size(
@@ -7442,7 +8000,7 @@ Key Management functions:
 PRESTypePluginKeyKind 
 RTI_PATIENT_PatientConfigPlugin_get_key_kind(void)
 {
-    return PRES_TYPEPLUGIN_NO_KEY;
+    return PRES_TYPEPLUGIN_USER_KEY;
 }
 
 RTIBool RTI_PATIENT_PatientConfigPlugin_deserialize_key(
@@ -7505,6 +8063,171 @@ RTI_PATIENT_PatientConfigPlugin_get_serialized_key_max_size_for_keyhash(
     }
 
     return size;
+}
+
+RTIBool 
+RTI_PATIENT_PatientConfigPlugin_instance_to_key(
+    PRESTypePluginEndpointData endpoint_data,
+    RTI_PATIENT_PatientConfigKeyHolder *dst, 
+    const RTI_PATIENT_PatientConfig *src)
+{
+    if (endpoint_data) {} /* To avoid warnings */   
+
+    if (!RTICdrType_copyStringEx (
+        &dst->Id, src->Id, 
+        (32) + 1, RTI_FALSE)){
+        return RTI_FALSE;
+    }
+    return RTI_TRUE;
+}
+
+RTIBool 
+RTI_PATIENT_PatientConfigPlugin_key_to_instance(
+    PRESTypePluginEndpointData endpoint_data,
+    RTI_PATIENT_PatientConfig *dst, const
+    RTI_PATIENT_PatientConfigKeyHolder *src)
+{
+    if (endpoint_data) {} /* To avoid warnings */   
+    if (!RTICdrType_copyStringEx (
+        &dst->Id, src->Id, 
+        (32) + 1, RTI_FALSE)){
+        return RTI_FALSE;
+    }
+    return RTI_TRUE;
+}
+
+RTIBool 
+RTI_PATIENT_PatientConfigPlugin_instance_to_keyhash(
+    PRESTypePluginEndpointData endpoint_data,
+    DDS_KeyHash_t *keyhash,
+    const RTI_PATIENT_PatientConfig *instance,
+    RTIEncapsulationId encapsulationId)
+{
+    struct RTICdrStream * md5Stream = NULL;
+    struct RTICdrStreamState cdrState;
+    char * buffer = NULL;
+    RTIXCdrBoolean iCdrv2;
+
+    iCdrv2 = RTIXCdrEncapsulationId_isCdrV2(encapsulationId);
+    RTICdrStreamState_init(&cdrState);
+    md5Stream = PRESTypePluginDefaultEndpointData_getMD5Stream(endpoint_data);
+
+    if (md5Stream == NULL) {
+        return RTI_FALSE;
+    }
+
+    RTICdrStream_resetPosition(md5Stream);
+    RTICdrStream_setDirtyBit(md5Stream, RTI_TRUE);
+
+    if (!PRESTypePlugin_interpretedSerializeKeyForKeyhash(
+        endpoint_data,
+        instance,
+        md5Stream,
+        iCdrv2?
+        RTI_CDR_ENCAPSULATION_ID_CDR2_BE:
+        RTI_CDR_ENCAPSULATION_ID_CDR_BE,
+        NULL)) 
+    {
+        int size;
+
+        RTICdrStream_pushState(md5Stream, &cdrState, -1);
+
+        size = (int)PRESTypePlugin_interpretedGetSerializedSampleSize(
+            endpoint_data,
+            RTI_FALSE,
+            iCdrv2?
+            RTI_CDR_ENCAPSULATION_ID_CDR2_BE:
+            RTI_CDR_ENCAPSULATION_ID_CDR_BE,
+            0,
+            instance);
+
+        if (size <= RTICdrStream_getBufferLength(md5Stream)) {
+            RTICdrStream_popState(md5Stream, &cdrState);        
+            return RTI_FALSE;
+        }   
+
+        RTIOsapiHeap_allocateBuffer(&buffer,size,0);
+
+        if (buffer == NULL) {
+            RTICdrStream_popState(md5Stream, &cdrState);
+            return RTI_FALSE;
+        }
+
+        RTICdrStream_set(md5Stream, buffer, size);
+        RTIOsapiMemory_zero(
+            RTICdrStream_getBuffer(md5Stream),
+            RTICdrStream_getBufferLength(md5Stream));
+        RTICdrStream_resetPosition(md5Stream);
+        RTICdrStream_setDirtyBit(md5Stream, RTI_TRUE);
+        if (!PRESTypePlugin_interpretedSerializeKeyForKeyhash(
+            endpoint_data,
+            instance,
+            md5Stream, 
+            iCdrv2?
+            RTI_CDR_ENCAPSULATION_ID_CDR2_BE:
+            RTI_CDR_ENCAPSULATION_ID_CDR_BE,
+            NULL)) 
+        {
+            RTICdrStream_popState(md5Stream, &cdrState);
+            RTIOsapiHeap_freeBuffer(buffer);
+            return RTI_FALSE;
+        }        
+    }   
+
+    if (PRESTypePluginDefaultEndpointData_getMaxSizeSerializedKey(endpoint_data, iCdrv2) > 
+    (unsigned int)(MIG_RTPS_KEY_HASH_MAX_LENGTH) ||
+    PRESTypePluginDefaultEndpointData_forceMD5KeyHash(endpoint_data)) {
+        RTICdrStream_computeMD5(md5Stream, keyhash->value);
+    } else {
+        RTIOsapiMemory_zero(keyhash->value,MIG_RTPS_KEY_HASH_MAX_LENGTH);
+        RTIOsapiMemory_copy(
+            keyhash->value, 
+            RTICdrStream_getBuffer(md5Stream), 
+            RTICdrStream_getCurrentPositionOffset(md5Stream));
+    }
+
+    keyhash->length = MIG_RTPS_KEY_HASH_MAX_LENGTH;
+
+    if (buffer != NULL) {
+        RTICdrStream_popState(md5Stream, &cdrState);
+        RTIOsapiHeap_freeBuffer(buffer);
+    }
+
+    return RTI_TRUE;
+}
+
+RTIBool 
+RTI_PATIENT_PatientConfigPlugin_serialized_sample_to_keyhash(
+    PRESTypePluginEndpointData endpoint_data,
+    struct RTICdrStream *stream, 
+    DDS_KeyHash_t *keyhash,
+    RTIBool deserialize_encapsulation,
+    void *endpoint_plugin_qos) 
+{   
+    RTI_PATIENT_PatientConfig * sample = NULL;
+    sample = (RTI_PATIENT_PatientConfig *)
+    PRESTypePluginDefaultEndpointData_getTempSample(endpoint_data);
+    if (sample == NULL) {
+        return RTI_FALSE;
+    }
+
+    if (!PRESTypePlugin_interpretedSerializedSampleToKey(
+        endpoint_data,
+        sample,
+        stream, 
+        deserialize_encapsulation, 
+        RTI_TRUE,
+        endpoint_plugin_qos)) {
+        return RTI_FALSE;
+    }
+    if (!RTI_PATIENT_PatientConfigPlugin_instance_to_keyhash(
+        endpoint_data, 
+        keyhash, 
+        sample,
+        RTICdrStream_getEncapsulationKind(stream))) {
+        return RTI_FALSE;
+    }
+    return RTI_TRUE;
 }
 
 struct RTIXCdrInterpreterPrograms *RTI_PATIENT_PatientConfigPlugin_get_programs()
@@ -7580,19 +8303,40 @@ struct PRESTypePlugin *RTI_PATIENT_PatientConfigPlugin_new(void)
     (PRESTypePluginGetKeyKindFunction)
     RTI_PATIENT_PatientConfigPlugin_get_key_kind;
 
-    /* These functions are only used for keyed types. As this is not a keyed
-    type they are all set to NULL
-    */
-    plugin->serializeKeyFnc = NULL ;    
-    plugin->deserializeKeyFnc = NULL;  
-    plugin->getKeyFnc = NULL;
-    plugin->returnKeyFnc = NULL;
-    plugin->instanceToKeyFnc = NULL;
-    plugin->keyToInstanceFnc = NULL;
-    plugin->getSerializedKeyMaxSizeFnc = NULL;
-    plugin->instanceToKeyHashFnc = NULL;
-    plugin->serializedSampleToKeyHashFnc = NULL;
-    plugin->serializedKeyToKeyHashFnc = NULL;    
+    plugin->getSerializedKeyMaxSizeFnc =   
+    (PRESTypePluginGetSerializedKeyMaxSizeFunction)
+    RTI_PATIENT_PatientConfigPlugin_get_serialized_key_max_size;
+    plugin->serializeKeyFnc =
+    (PRESTypePluginSerializeKeyFunction)
+    PRESTypePlugin_interpretedSerializeKey;
+    plugin->deserializeKeyFnc =
+    (PRESTypePluginDeserializeKeyFunction)
+    RTI_PATIENT_PatientConfigPlugin_deserialize_key;
+    plugin->deserializeKeySampleFnc =
+    (PRESTypePluginDeserializeKeySampleFunction)
+    PRESTypePlugin_interpretedDeserializeKey;
+
+    plugin-> instanceToKeyHashFnc = 
+    (PRESTypePluginInstanceToKeyHashFunction)
+    RTI_PATIENT_PatientConfigPlugin_instance_to_keyhash;
+    plugin->serializedSampleToKeyHashFnc = 
+    (PRESTypePluginSerializedSampleToKeyHashFunction)
+    RTI_PATIENT_PatientConfigPlugin_serialized_sample_to_keyhash;
+
+    plugin->getKeyFnc =
+    (PRESTypePluginGetKeyFunction)
+    RTI_PATIENT_PatientConfigPlugin_get_key;
+    plugin->returnKeyFnc =
+    (PRESTypePluginReturnKeyFunction)
+    RTI_PATIENT_PatientConfigPlugin_return_key;
+
+    plugin->instanceToKeyFnc =
+    (PRESTypePluginInstanceToKeyFunction)
+    RTI_PATIENT_PatientConfigPlugin_instance_to_key;
+    plugin->keyToInstanceFnc =
+    (PRESTypePluginKeyToInstanceFunction)
+    RTI_PATIENT_PatientConfigPlugin_key_to_instance;
+    plugin->serializedKeyToKeyHashFnc = NULL; /* Not supported yet */
     #ifdef NDDS_STANDALONE_TYPE
     plugin->typeCode = NULL; 
     #else

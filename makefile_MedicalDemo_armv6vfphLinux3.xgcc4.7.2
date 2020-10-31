@@ -24,7 +24,7 @@
 
 # If undefined in the environment default NDDSHOME to install dir
 ifndef NDDSHOME
-NDDSHOME := "C:\RTI\rti_connext_dds-6.0.1\bin\.."
+NDDSHOME := "/Applications/rti_connext_dds-6.0.1"
 endif
 
 SOURCE_DIR = 
@@ -32,11 +32,11 @@ SOURCE_DIR =
 TARGET_ARCH = armv6vfphLinux3.xgcc4.7.2
 
 ifndef COMPILER
-COMPILER = arm-linux-gnueabihf-g++-4.7
+COMPILER = arm-linux-gnueabihf-g++
 endif
 COMPILER_FLAGS =
 ifndef LINKER
-LINKER = arm-linux-gnueabihf-g++-4.7
+LINKER = arm-linux-gnueabihf-g++
 endif
 LINKER_FLAGS =
 SYSLIBS = -ldl -lnsl -lm -lpthread -lrt
@@ -74,7 +74,7 @@ LIBS = -L$(NDDSHOME)/lib/$(TARGET_ARCH) \
         $(SYSLIBS)
 
 CDRSOURCES    = MedicalDemo.idl
-SOURCES = $(SOURCE_DIR)MedicalDemoPlugin.cxx $(SOURCE_DIR)MedicalDemo.cxx $(SOURCE_DIR)MedicalDemoSupport.cxx rs232.c
+SOURCES = $(SOURCE_DIR)MedicalDemoPlugin.cxx $(SOURCE_DIR)MedicalDemo.cxx $(SOURCE_DIR)MedicalDemoSupport.cxx
 COMMONSOURCES = $(notdir $(SOURCES))
 
 EXEC          = MedicalDemo_subscriber MedicalDemo_publisher

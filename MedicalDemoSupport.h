@@ -8,8 +8,8 @@ For more information, type 'rtiddsgen -help' at a command shell
 or consult the RTI Connext manual.
 */
 
-#ifndef MedicalDemoSupport_1585937757_h
-#define MedicalDemoSupport_1585937757_h
+#ifndef MedicalDemoSupport_1585937706_h
+#define MedicalDemoSupport_1585937706_h
 
 /* Uses */
 #include "MedicalDemo.h"
@@ -237,5 +237,5 @@ DDS_DATAREADER_W_DATA_CONSISTENCY_CHECK(RTI_PATIENT_PatientConfigDataReader, RTI
 #define NDDSUSERDllExport
 #endif
 
-#endif  /* MedicalDemoSupport_1585937757_h */
+#endif  /* MedicalDemoSupport_1585937706_h */
 
