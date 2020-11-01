@@ -47,7 +47,6 @@ add and remove them dynamically from the domain.
 
 #include "rs232.h"
 
-
 class RTI_PATIENT_PatientConfigListener : public DDSDataReaderListener {
 public:
 
@@ -116,7 +115,7 @@ void RTI_PATIENT_PatientConfigListener::on_data_available(DDSDataReader* reader)
 		if (info_seq[i].valid_data) {
 			printf("Received data\n");
 			//RTI_PATIENT_PatientConfigTypeSupport::print_data(&data_seq[i]);
-			// assume only one patient for now
+			// Each Pi/Arduino would be configured for one patient
 			this->pulse_high_threshold = data_seq[i].PulseHighThreshold;
 			this->pulse_low_threshold = data_seq[i].PulseLowThreshold;
 			printf("ID: %s  PHT: %d PLT: %d \n", data_seq[i].Id,this->pulse_high_threshold, this->pulse_low_threshold);
@@ -389,8 +388,8 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	/* Initialize PatientInfo data */
 	PatientInfoInstance->Id = (char *)"H1234HMS007";
 	PatientInfoInstance->Age = 33;
-	PatientInfoInstance->FirstName = (char *)"Charles";
-	PatientInfoInstance->LastName = (char *)"Xavier";
+	PatientInfoInstance->FirstName = (char *)"James";
+	PatientInfoInstance->LastName = (char *)"Bond";
 	PatientInfoInstance->HeightCm = 180;
 	PatientInfoInstance->Sex = (char *)"male";
 	PatientInfoInstance->WeightKg = 90;
@@ -451,16 +450,16 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	      
 	      if ((PatientPulseInstance->bpm >= pulse_high_threshold) && !alarm) {
 		alarm = true;
-		printf("ALARM PATIENT %s BPM HIGH: BPM %d Hit max threshold %d\n",
+		printf("***BPM HIGH ALARM PATIENT %s BPM: BPM %d Hit max threshold %d\n",
 		       PatientInfoInstance->Id, PatientPulseInstance->bpm, pulse_high_threshold);
 	      }	else if ((PatientPulseInstance->bpm <= pulse_low_threshold) && !alarm) {
 		alarm = true;
-		printf("ALARM PATIENT %s BPM LOW: BPM %d HIT SET MIN THRESHOLD %d\n",
+		printf("***BPM LOW ALARM PATIENT %s BPM: BPM %d Hit set min threshold %d\n",
 		       PatientInfoInstance->Id, PatientPulseInstance->bpm, pulse_low_threshold);
 	      } else if ((PatientPulseInstance->bpm < pulse_high_threshold) &&
 			 (PatientPulseInstance->bpm > pulse_low_threshold)) {
 			   if (alarm) {
-			     printf("ALARM PATIENT %s CLEARED: BPM %d within: %d - %d range\n",
+			     printf("***CLEARED BPM ALARM PATIENT %s: BPM %d within: %d - %d range\n",
 				    PatientInfoInstance->Id, PatientPulseInstance->bpm,
 				    pulse_low_threshold, pulse_high_threshold );
 			   }
