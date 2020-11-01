@@ -48,9 +48,9 @@ add and remove them dynamically from the domain.
 #include "rs232.h"
 
 
-
 class RTI_PATIENT_PatientConfigListener : public DDSDataReaderListener {
 public:
+
 	virtual void on_requested_deadline_missed(
 		DDSDataReader* /*reader*/,
 		const DDS_RequestedDeadlineMissedStatus& /*status*/) {}
@@ -76,6 +76,14 @@ public:
 		const DDS_SubscriptionMatchedStatus& /*status*/) {}
 
 	virtual void on_data_available(DDSDataReader* reader);
+
+  int get_pulse_high_threshold() {return (this->pulse_high_threshold); };
+  int get_pulse_low_threshold() {return (this->pulse_low_threshold); };
+
+private:
+       int pulse_high_threshold = 90;
+       int pulse_low_threshold = 50;
+
 };
 
 void RTI_PATIENT_PatientConfigListener::on_data_available(DDSDataReader* reader)
@@ -107,7 +115,12 @@ void RTI_PATIENT_PatientConfigListener::on_data_available(DDSDataReader* reader)
 	for (i = 0; i < data_seq.length(); ++i) {
 		if (info_seq[i].valid_data) {
 			printf("Received data\n");
-			RTI_PATIENT_PatientConfigTypeSupport::print_data(&data_seq[i]);
+			//RTI_PATIENT_PatientConfigTypeSupport::print_data(&data_seq[i]);
+			// assume only one patient for now
+			this->pulse_high_threshold = data_seq[i].PulseHighThreshold;
+			this->pulse_low_threshold = data_seq[i].PulseLowThreshold;
+			printf("ID: %s  PHT: %d PLT: %d \n", data_seq[i].Id,this->pulse_high_threshold, this->pulse_low_threshold);
+
 		}
 	}
 
@@ -171,7 +184,7 @@ extern "C" int publisher_main(int domainId, int sample_count)
     RTI_PATIENT_PatientInfo *PatientInfoInstance = NULL;
     RTI_PATIENT_PatientConfig *PatientConfigInstance = NULL;
     DDSDataReader *reader = NULL;
-    RTI_PATIENT_PatientConfigListener *reader_listener = NULL;
+    RTI_PATIENT_PatientConfigListener *patient_config_reader_listener = NULL;
     DDS_ReturnCode_t retcode;
     DDS_InstanceHandle_t instance_handle = DDS_HANDLE_NIL;
     const char *type_name = NULL;
@@ -182,9 +195,11 @@ extern "C" int publisher_main(int domainId, int sample_count)
     const int READINGS_PER_TOPIC = 10;
     const int MIN_LINE_SZ = 30;  // reading from Arduino with all single digits
     const int MAX_LINE_SZ = 35;  // Arduino sample ="raw:402 avg:520 thresh:670 bpm:80\n
-    const int SAMPLES_BUF_SZ = 20 * MAX_LINE_SZ;  // set for 20 samples, sleep for 10
+    const int SAMPLES_BUF_SZ = READINGS_PER_TOPIC * MAX_LINE_SZ;  // set for 2x samples, sleep for 10
     bool badline; // Aruino reading invalide or not
     int num_bad_readings = 0;  // Track number of bad readings from Arduino
+    bool alarm = false;
+    int pulse_high_threshold, pulse_low_threshold;
 
     /* Serial port variables */
     int i = 0, j = 0, k = 0;  // i=buf indx, j=bufln indx, k=topic.reading indx, count=topic sample indx
@@ -323,9 +338,6 @@ extern "C" int publisher_main(int domainId, int sample_count)
 		return -1;
 	}
 
-
-
-
 	/********* Setup the PatientConfigType Topic ************/
 	/* Register PatientConfigType before creating topic */
 	type_name = RTI_PATIENT_PatientConfigTypeSupport::get_type_name();
@@ -348,15 +360,15 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	}
 
 	/* Create a data reader listener */
-	reader_listener = new RTI_PATIENT_PatientConfigListener();
+	patient_config_reader_listener = new RTI_PATIENT_PatientConfigListener();
 
 	reader = subscriber->create_datareader(
-		topic, DDS_DATAREADER_QOS_DEFAULT, reader_listener,
+		topic, DDS_DATAREADER_QOS_DEFAULT, patient_config_reader_listener,
 		DDS_STATUS_MASK_ALL);
 	if (reader == NULL) {
 		fprintf(stderr, "create_datareader error\n");
 		DDS_entities_shutdown(participant);
-		delete reader_listener;
+		delete patient_config_reader_listener;
 		return -1;
 	}
 
@@ -375,7 +387,7 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	// instance_handle = RTI_PATIENT_PatientConfig_writer->register_instance(*instance);
 
 	/* Initialize PatientInfo data */
-	PatientInfoInstance->Id.Id = (char *)"199";
+	PatientInfoInstance->Id = (char *)"H1234HMS007";
 	PatientInfoInstance->Age = 33;
 	PatientInfoInstance->FirstName = (char *)"Charles";
 	PatientInfoInstance->LastName = (char *)"Xavier";
@@ -396,7 +408,7 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	RTI_PATIENT_PatientInfoTypeSupport::print_data(PatientInfoInstance);
 
 	/* Main loop */
-	printf ("count %d, sample_count %d", count, sample_count);
+	printf ("count %d, sample_count %d \n", count, sample_count);
 	for (count = 0; (sample_count == 0) || (count < sample_count );) 
 	{
 	  PatientPulseInstance->readings.length(READINGS_PER_TOPIC);  // Set the length		
@@ -434,12 +446,28 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	      strtoraw = strtok(NULL, "eol"); // 'eol' does not exist so search to eol strtoraw = bmp value;
 		    
 	      PatientPulseInstance->bpm = atoi(strtoraw);
-		    
-	      if (PatientPulseInstance->readings[k]<PatientConfigInstance->PulseLowThreshold || 
-		   PatientPulseInstance->readings[k]>PatientConfigInstance->PulseHighThreshold) {
-		printf("ALARM: pulse reading not within thresholds");
+	      pulse_high_threshold = patient_config_reader_listener->get_pulse_high_threshold();
+	      pulse_low_threshold = patient_config_reader_listener->get_pulse_low_threshold();
+	      
+	      if ((PatientPulseInstance->bpm >= pulse_high_threshold) && !alarm) {
+		alarm = true;
+		printf("ALARM PATIENT %s BPM HIGH: BPM %d Hit max threshold %d\n",
+		       PatientInfoInstance->Id, PatientPulseInstance->bpm, pulse_high_threshold);
+	      }	else if ((PatientPulseInstance->bpm <= pulse_low_threshold) && !alarm) {
+		alarm = true;
+		printf("ALARM PATIENT %s BPM LOW: BPM %d HIT SET MIN THRESHOLD %d\n",
+		       PatientInfoInstance->Id, PatientPulseInstance->bpm, pulse_low_threshold);
+	      } else if ((PatientPulseInstance->bpm < pulse_high_threshold) &&
+			 (PatientPulseInstance->bpm > pulse_low_threshold)) {
+			   if (alarm) {
+			     printf("ALARM PATIENT %s CLEARED: BPM %d within: %d - %d range\n",
+				    PatientInfoInstance->Id, PatientPulseInstance->bpm,
+				    pulse_low_threshold, pulse_high_threshold );
+			   }
+			   alarm = false;
 	      }
-		    
+	      
+		    		    
 	      // printf("updated reading: %d with raw: %d, current_line Len: %d\n", k, PatientPulseInstance->readings[k], j);
 	      j=0;  // resest bufln
 		    
@@ -447,7 +475,7 @@ extern "C" int publisher_main(int domainId, int sample_count)
 		if (k==READINGS_PER_TOPIC-1) {  // if we have enough readings, send topic
 		  PatientPulseInstance->readings.length(k+1);
 		  PatientPulseInstance->timestamp = count;
-		  PatientPulseInstance->Id.Id = PatientInfoInstance->Id.Id;
+		  PatientPulseInstance->Id = PatientInfoInstance->Id;
 				
 		  // Write that Patient Pulse data 
 		  retcode = RTI_PATIENT_PatientPulse_writer->write(*PatientPulseInstance, instance_handle);
@@ -461,7 +489,7 @@ extern "C" int publisher_main(int domainId, int sample_count)
 		    fprintf(stderr, "write error %d\n", retcode);
 		  }
 		  //printf("Topic Sample: bi: %d, bl: %d, tri: %d \n", i, j, k);
-		  RTI_PATIENT_PatientPulseTypeSupport::print_data(PatientPulseInstance);
+		  //RTI_PATIENT_PatientPulseTypeSupport::print_data(PatientPulseInstance);
 
 		  k=0; // reset for next topic readings set
 		  count++; // Topic Sample counts sent controls loop
