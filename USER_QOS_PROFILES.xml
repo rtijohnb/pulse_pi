@@ -1,12 +1,94 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
+<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://community.rti.com/schema/6.0.1/rti_dds_profiles.xsd" version="6.0.1">
+    <types>
+      <module name="RTI">
+        <module name="CONSTANTS">
+          <const name="QOS_LIBRARY" type="string" value="&quot;Demo_Qos_Lib&quot;"/>
+          <const name="BASE_PARTICIPANT_QOS" type="string" value="&quot;Base_Participant_Qos&quot;"/>
+          <const name="BEST_EFFORT_DEADLINE_QOS" type="string" value="&quot;Best_Effort_Deadline_Qos&quot;"/>
+          <const name="COMMAND_RESPONSE_QOS" type="string" value="&quot;Command_Response_Qos&quot;"/>
+          <const name="DURABLE_STATE_QOS" type="string" value="&quot;Durable_State_Qos&quot;"/>
+          <const name="EVENTS_ALARMS_QOS" type="string" value="&quot;Events_Alarms_Qos&quot;"/>
+          <const name="BATCHED_SAMPLES_QOS" type="string" value="&quot;Batched_Samples_Qos&quot;"/>
+        </module>
+        <module name="TYPES">
+          <typedef name="TimeStamp_t" type="int64"/>
+          <struct name="Duration_t" nested="true">
+            <member name="sec" type="int32"/>
+            <member name="nanosec" type="int32"/>
+          </struct>
+          <typedef name="AnalogReadng_t" type="uint16"/>
+          <typedef name="Voltage_t" type="float32"/>
+          <typedef name="Temperature_t" type="float32"/>
+          <enum name="Temperature_Units_t">
+            <enumerator name="DEGREES_C"/>
+            <enumerator name="DEGREES_F"/>
+            <enumerator name="DEGREES_K"/>
+          </enum>
+          <typedef name="Percentage_t" type="float32"/>
+        </module>
+        <module name="SENSOR">
+          <const name="SENSOR_PERIODICS_TOPIC" type="string" value="&quot;SensorPeriodics&quot;"/>
+          <const name="SENSOR_INFO_TOPIC" type="string" value="&quot;SensorInfo&quot;"/>
+          <const name="SENSOR_CONFIG_TOPIC" type="string" value="&quot;SensorConfig&quot;"/>
+          <struct name="_sensor_id_t" nested="true">
+            <member name="SensorTag" type="string" stringMaxLength="32" key="true"/>
+          </struct>
+          <typedef name="SensorID_t" type="nonBasic" nonBasicTypeName="RTI::SENSOR::_sensor_id_t"/>
+          <struct name="SensorPeriodics" extensibility="appendable">
+            <member name="id" type="nonBasic" nonBasicTypeName="RTI::SENSOR::SensorID_t"/>
+            <member name="timestamp" type="nonBasic" nonBasicTypeName="RTI::TYPES::TimeStamp_t"/>
+            <member name="exampleSensorReading" type="float32"/>
+          </struct>
+          <struct name="SensorInfo" extensibility="appendable">
+            <member name="id" type="nonBasic" nonBasicTypeName="RTI::SENSOR::SensorID_t"/>
+            <member name="parameter1" type="int32"/>
+          </struct>
+          <struct name="SensorConfig" extensibility="appendable">
+            <member name="id" type="nonBasic" nonBasicTypeName="RTI::SENSOR::SensorID_t"/>
+            <member name="units" type="nonBasic" nonBasicTypeName="RTI::TYPES::Temperature_Units_t"/>
+            <member name="calibrationFactors" type="float32" sequenceMaxLength="3"/>
+          </struct>
+        </module>
+        <module name="PATIENT">
+          <const name="PATIENT_INFO_TOPIC" type="string" value="&quot;PatientInfo&quot;"/>
+          <const name="PATIENT_PERIODICS_TOPIC" type="string" value="&quot;PatientPeriodics&quot;"/>
+          <const name="PATIENT_CONFIG_TOPIC" type="string" value="&quot;PatientConfig&quot;"/>
+          <enum name="PATIENT_ALARM_TYPE">
+            <enumerator name="NO_ALARM" value="0"/>
+            <enumerator name="PULSE_LOW" value="1"/>
+            <enumerator name="PULSE_HIGH" value="2"/>
+            <enumerator name="PULSE_SENSOR_ERROR" value="3"/>
+          </enum>
+          <struct name="_patient_id_t" nested="true">
+            <member name="Id" type="string" stringMaxLength="32" key="true"/>
+          </struct>
+          <typedef name="Patient_ID_t" type="nonBasic" nonBasicTypeName="RTI::PATIENT::_patient_id_t"/>
+          <struct name="PatientPulse">
+            <member name="Id" type="string" stringMaxLength="32" key="true"/>
+            <member name="timestamp" type="nonBasic" nonBasicTypeName="RTI::TYPES::TimeStamp_t"/>
+            <member name="readings" type="uint32" sequenceMaxLength="100"/>
+            <member name="bpm" type="uint8"/>
+          </struct>
+          <struct name="PatientInfo">
+            <member name="Id" type="string" stringMaxLength="32" key="true"/>
+            <member name="FirstName" type="string" stringMaxLength="32"/>
+            <member name="LastName" type="string" stringMaxLength="32"/>
+            <member name="Age" type="uint32"/>
+            <member name="HeightCm" type="uint32"/>
+            <member name="WeightKg" type="uint32"/>
+            <member name="Sex" type="string" stringMaxLength="32"/>
+          </struct>
+          <struct name="PatientConfig">
+            <member name="Id" type="string" stringMaxLength="32" key="true"/>
+            <member name="PulseHighThreshold" type="uint32" default="200"/>
+            <member name="PulseLowThreshold" type="uint32" default="0"/>
+          </struct>
+        </module>
+      </module>
+    </types>
 
-<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-     xsi:noNamespaceSchemaLocation="C:/RTI/rti_connext_dds-6.0.1/bin/../resource/schema/rti_dds_qos_profiles.xsd">
-    <!-- QoS Library containing the QoS profile used in the generated example.
-
-        A QoS library is a named set of QoS profiles.
-    -->
-    <qos_library name="MedicalDemo_Library">
+   <qos_library name="MedicalDemo_Library">
 
         <!-- QoS profile used to configure reliable communication between the DataWriter 
              and DataReader created in the example code.
@@ -23,9 +105,6 @@
                     <late_joiner_heartbeat_period><sec>0</sec><nanosec>200000000</nanosec></late_joiner_heartbeat_period>
                 </rtps_reliable_writer>
                 </protocol>
-                <publication_name>
-                    <name>MedicalDemoDataWriter</name>
-                </publication_name>
                 <reliability>
                     <kind>RELIABLE_RELIABILITY_QOS</kind>
                 </reliability>
@@ -37,9 +116,6 @@
 
             <!-- QoS used to configure the data reader created in the example code -->                
             <datareader_qos>
-                <subscription_name>
-                    <name>MedicalDemoDataReader</name>
-                </subscription_name>
                 <reliability>
                     <kind>RELIABLE_RELIABILITY_QOS</kind>
                 </reliability>
@@ -53,13 +129,33 @@
                 The participant name, if it is set, will be displayed in the
                 RTI tools, making it easier for you to tell one
                 application from another when you're debugging.
-                -->
-                <participant_name>
-                    <name>MedicalDemoParticipant</name>
-                    <role_name>MedicalDemoParticipantRole</role_name>
-                </participant_name>
+                -  BUT OVERRIDES NAMES BELOW - AND FAILS XML CREATE -->
 
             </participant_qos>
         </qos_profile>
     </qos_library>
+
+    <domain_library name="MedicalDomainLibrary1">
+      <domain name="MedicalDomain0" domain_id="0">
+        <register_type name="PatientPulseType" type_ref="RTI::PATIENT::PatientPulse"/>
+        <register_type name="PatientInfoType" type_ref="RTI::PATIENT::PatientInfo"/>
+        <register_type name="PatientConfigType" type_ref="RTI::PATIENT::PatientConfig"/>
+        <topic name="PatientPulseTopic" register_type_ref="PatientPulseType"/>
+        <topic name="PatientInfoTopic" register_type_ref="PatientInfoType"/>
+        <topic name="PatientConfigTopic" register_type_ref="PatientConfigType"/>
+      </domain>
+    </domain_library>
+
+    <domain_participant_library name="MedicalParticipantLibrary1">
+      <domain_participant name="RaspberryPiParticipant1" domain_ref="MedicalDomainLibrary1::MedicalDomain0">
+        <publisher name="RaspberryPiPublisher1">
+          <data_writer name="PatientPulseTopicWriter" topic_ref="PatientPulseTopic"/>
+          <data_writer name="PatientInfoTopicWriter" topic_ref="PatientInfoTopic"/>
+        </publisher>
+        <subscriber name="RaspberryPiSubscriber1">
+          <data_reader name="PatientConfigTopicReader" topic_ref="PatientConfigTopic"/>
+        </subscriber>
+      </domain_participant>
+    </domain_participant_library>
+
 </dds>

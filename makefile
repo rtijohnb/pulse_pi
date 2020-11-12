@@ -74,10 +74,10 @@ LIBS = -L$(NDDSHOME)/lib/$(TARGET_ARCH) \
         $(SYSLIBS)
 
 CDRSOURCES    = MedicalDemo.idl
-SOURCES = $(SOURCE_DIR)MedicalDemoPlugin.cxx $(SOURCE_DIR)MedicalDemo.cxx $(SOURCE_DIR)MedicalDemoSupport.cxx $(SOURCE_DIR)SerialPort.cxx
+SOURCES =  $(SOURCE_DIR)SerialPort.cxx
 COMMONSOURCES = $(notdir $(SOURCES))
 
-EXEC          = MedicalDemo_publisher
+EXEC          = MedicalDemo
 DIRECTORIES   = objs.dir objs/$(TARGET_ARCH).dir
 COMMONOBJS    = $(COMMONSOURCES:%.cxx=objs/$(TARGET_ARCH)/%.o)
 
@@ -91,7 +91,7 @@ $(TARGET_ARCH) : $(DIRECTORIES) $(COMMONOBJS) \
 objs/$(TARGET_ARCH)/% : objs/$(TARGET_ARCH)/%.o
 	$(LINKER) $(LINKER_FLAGS)   -o $@ $@.o $(COMMONOBJS) $(LIBS)
 
-objs/$(TARGET_ARCH)/%.o : $(SOURCE_DIR)%.cxx $(SOURCE_DIR)MedicalDemo.h 
+objs/$(TARGET_ARCH)/%.o : $(SOURCE_DIR)%.cxx 
 	$(COMPILER) $(COMPILER_FLAGS)  -o $@ $(DEFINES) $(INCLUDES) -c $<
 
 #

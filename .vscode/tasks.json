@@ -24,7 +24,7 @@
         {
             "label": "Run PulseDemo",
             "type": "shell",
-            "command": "./objs/x64Darwin17Clang9.0/PulseDemo",
+            "command": "./objs/x64Darwin17Clang9.0/MedicalDemo",
             "dependsOn": [
                 "Build All"
             ],
@@ -37,7 +37,7 @@
         {
             "label": "Build/Run PulseDemo",
             "type": "shell",
-            "command": "./objs/x64Darwin17Clang9.0/PulseDemo",
+            "command": "./objs/x64Darwin17Clang9.0/MedicalDemo",
             "dependsOn": [
                 "Build Clean",
                 "Build All"
@@ -51,7 +51,7 @@
         {
             "label": "Build/Debug PulseDemo",
             "type": "shell",
-            "command": "./objs/x64Darwin17Clang9.0/PulseDemo",
+            "command": "./objs/x64Darwin17Clang9.0/MedicalDemo",
             "dependsOn": [
                 "Build Clean",
                 "Build Debug"
