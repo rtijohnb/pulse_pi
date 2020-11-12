@@ -513,25 +513,24 @@ extern "C" int pulse_main(int domainId) {
                 strtoraw = strtok(NULL, "eol"); // 'eol' does not exist so search to eol strtoraw = bmp value;
                 bpm = atoi(strtoraw);
             
-            /*
-                if ((PatientPulseInstance->bpm >= pulse_high_threshold) && !alarm) {
+                if ((bpm >= myPatientConfigInfo.pulse_high_threshold) && !alarm) {
                     alarm = true;
                     printf("***BPM HIGH ALARM PATIENT %s BPM: BPM %d Hit max threshold %d\n",
-                    PatientInfoInstance->Id, PatientPulseInstance->bpm, pulse_high_threshold);
-                }	else if ((PatientPulseInstance->bpm <= pulse_low_threshold) && !alarm) {
+                    this_device_patient_id, bpm, myPatientConfigInfo.pulse_high_threshold);
+                }	else if ((bpm <= myPatientConfigInfo.pulse_low_threshold) && !alarm) {
                     alarm = true;
                     printf("***BPM LOW ALARM PATIENT %s BPM: BPM %d Hit set min threshold %d\n",
-                    PatientInfoInstance->Id, PatientPulseInstance->bpm, pulse_low_threshold);
-                } else if ((PatientPulseInstance->bpm < pulse_high_threshold) &&
-                    (PatientPulseInstance->bpm > pulse_low_threshold)) {
+                    this_device_patient_id, bpm, myPatientConfigInfo.pulse_low_threshold);
+                } else if ((bpm < myPatientConfigInfo.pulse_high_threshold) &&
+                    (bpm > myPatientConfigInfo.pulse_low_threshold)) {
                     if (alarm) {
                         printf("***CLEARED BPM ALARM PATIENT %s: BPM %d within: %d - %d range\n",
-                            PatientInfoInstance->Id, PatientPulseInstance->bpm,
-                            pulse_low_threshold, pulse_high_threshold );
+                            this_device_patient_id, bpm,
+                            myPatientConfigInfo.pulse_low_threshold,
+                            myPatientConfigInfo.pulse_high_threshold );
                     }
                     alarm = false;
                 }
-                */
                              
                 // printf("updated reading: %d with raw: %d, current_line Len: %d\n", k, PatientPulseInstance->readings[k], j);
                 j=0;  // resest bufln
