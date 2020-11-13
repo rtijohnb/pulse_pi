@@ -564,7 +564,7 @@ extern "C" int pulse_main(int domainId) {
                 } 
             }  // else newline
             (i < (sizeof(buf)-1)) ? i++: 0; // don't let i exceed buf len - this should never happen
-                                            // since we only read sizeof(buf)-1. If we are filling the bug
+                                            // since we only read sizeof(buf)-1. If we are filling the buf
                                             // we are sleeping too long - leaving too short time to process
         } // while (chars in buf)
         
