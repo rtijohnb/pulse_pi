@@ -27,7 +27,6 @@ class PatientConfigInfo {
        DDS_UnsignedLong pulse_low_threshold;
 } myPatientConfigInfo;
 
-
 //-------------------------------------------------------------------
 // handle_SIGINT - sets flag for orderly shutdown on Ctrl-C
 //-------------------------------------------------------------------
@@ -36,8 +35,6 @@ void handle_SIGINT(int unused)
   // On CTRL+C - abort! //
   run_flag = false;
 }
-
-
 class WaitsetPatientPulseWriterInfo {
     // holds waitset info needed for the writer waitset processing thread
     public:
@@ -259,7 +256,6 @@ void*  pthreadToProcPatientConfigReaderEvents(void *waitsetPatientConfigReaderIn
         int active_conditions = active_conditions_seq.length();
 
         for (int i = 0; i < active_conditions; ++i) {
-
             if (active_conditions_seq[i] == status_condition) {
                 /* Get the status changes so we can check which status
                  * condition triggered. */
@@ -272,7 +268,6 @@ void*  pthreadToProcPatientConfigReaderEvents(void *waitsetPatientConfigReaderIn
                     myPatientConfigWaitsetInfo->patient_config_reader->get_subscription_matched_status(st);
 					printf("\nPatientConfigReader: Pubs: %d %d\n", st.current_count, st.current_count_change);
                 }
-            
             } else if (active_conditions_seq[i] == read_condition) { 
                 // Get the latest samples
 				retcode = myPatientConfigWaitsetInfo->patient_config_reader->take(
@@ -291,7 +286,6 @@ void*  pthreadToProcPatientConfigReaderEvents(void *waitsetPatientConfigReaderIn
                             fflush(stdout);
 						}
 					}
-                    
 				} else if (retcode == DDS_RETCODE_NO_DATA) {
 					continue;
 				} else {
@@ -302,8 +296,7 @@ void*  pthreadToProcPatientConfigReaderEvents(void *waitsetPatientConfigReaderIn
                 if (retcode != DDS_RETCODE_OK) {
                     fprintf(stderr, "return_loan error %d\n", retcode);
                     goto end_patient_config_reader_thread;
-                }
-                
+                }  
 			}
 		}
 	} // While (run_flag)
@@ -348,7 +341,7 @@ extern "C" int pulse_main(int domainId) {
 
     const char *type_name = NULL;
     DDS_LongLong count = 0;  
-    const DDS_Duration_t TEN_READINGS_TIME = {0,100000000}; // tenth of sec
+    const DDS_Duration_t FIVE_READINGS_TIME = {0,50000000}; // 50K ns (1/20th sec)
     char * strtoraw;
     int series_size;
     const uint32_t READINGS_PER_TOPIC = 10;
@@ -479,7 +472,7 @@ extern "C" int pulse_main(int domainId) {
 	while(run_flag) {
         
         //i = RS232_PollComport(cport_nr, (unsigned char *)buf, sizeof(buf));
-        i = readSerialData(buf, sizeof(buf));
+        i = readSerialData(buf, sizeof(buf)-1);
 
         buf[i] = '\0';         // Make sure that \n is at the end of the string 
         // printf(".%s",buf);
@@ -489,7 +482,7 @@ extern "C" int pulse_main(int domainId) {
         while (buf[i] != '\0') {            // while we have chars
             if (buf[i] !='\n') {            // and while it's not a CRLF
                 bufln[j] = buf[i];          // con't to build up a bufferLn
-                (j != sizeof(bufln)+1) ? j++ : 0; // don't let j exceed bufln size
+                (j < (sizeof(bufln)-1)) ? j++ : 0; // don't let j exceed bufln size
 
             } else {                   // we have a line - process a line at a time
                 badline = false;       // assume a good line
@@ -537,6 +530,7 @@ extern "C" int pulse_main(int domainId) {
                     
                 if (!badline) { // If its good, add it to the topic Readings and increment k
                     if (k==READINGS_PER_TOPIC-1) {  // if we have enough readings, send topic
+                    
                         retcode = patient_info_writer->write(* patient_info_data, DDS_HANDLE_NIL);
                         if (retcode != DDS_RETCODE_OK) {
                             fprintf(stderr, "patient_info_writer: write error\n");
@@ -557,21 +551,24 @@ extern "C" int pulse_main(int domainId) {
                             fprintf(stderr, "patient_pulse_writer: write error\n");
                             goto pulse_main_end;
                         }
-                   
+                    
+
                         k=0; // reset for next topic readings set
                         count++; // Topic Sample counts sent controls loop
                     } else { // if (k !=READINGS_PER_TOPIC)
-                        k++;
+                        if (k++ >READINGS_PER_TOPIC-1) printf("ERROR - k exceeded number of topics"); 
                     }   
                 } else { // badline - leave k allow overwrite by good sample
                     num_bad_readings++;
                     printf("Bad reading from Arduino Sensor: Count %d\n", num_bad_readings);
                 } 
             }  // else newline
-            i++;
+            (i < (sizeof(buf)-1)) ? i++: 0; // don't let i exceed buf len - this should never happen
+                                            // since we only read sizeof(buf)-1. If we are filling the bug
+                                            // we are sleeping too long - leaving too short time to process
         } // while (chars in buf)
         
-        NDDSUtility::sleep(TEN_READINGS_TIME);  // we have buffers for 20 so read every 10 at a time
+        NDDSUtility::sleep(FIVE_READINGS_TIME);  // we have buffers for 20 so read every 10 at a time
 	} // while (run_flag)
 
 	pulse_main_end:
