@@ -9,8 +9,8 @@ For more information, type 'rtiddsgen -help' at a command shell
 or consult the RTI Connext manual.
 */
 
-#ifndef MedicalDemo_1585937706_h
-#define MedicalDemo_1585937706_h
+#ifndef MedicalDemo_1585937757_h
+#define MedicalDemo_1585937757_h
 
 #ifndef NDDS_STANDALONE_TYPE
 #ifndef ndds_cpp_h
@@ -1117,7 +1117,7 @@ class RTI_PATIENT_PatientPulse
     typedef RTI_PATIENT_PatientPulseDataReader DataReader;
     #endif
 
-    DDS_Char *   Id ;
+    RTI_PATIENT__patient_id_t   Id ;
     DDS_LongLong   timestamp ;
     DDS_UnsignedLongSeq  readings ;
     DDS_Octet   bpm ;
@@ -1206,7 +1206,7 @@ class RTI_PATIENT_PatientInfo
     typedef RTI_PATIENT_PatientInfoDataReader DataReader;
     #endif
 
-    DDS_Char *   Id ;
+    RTI_PATIENT__patient_id_t   Id ;
     DDS_Char *   FirstName ;
     DDS_Char *   LastName ;
     DDS_UnsignedLong   Age ;
@@ -1298,7 +1298,7 @@ class RTI_PATIENT_PatientConfig
     typedef RTI_PATIENT_PatientConfigDataReader DataReader;
     #endif
 
-    DDS_Char *   Id ;
+    RTI_PATIENT__patient_id_t   Id ;
     DDS_UnsignedLong   PulseHighThreshold ;
     DDS_UnsignedLong   PulseLowThreshold ;
 

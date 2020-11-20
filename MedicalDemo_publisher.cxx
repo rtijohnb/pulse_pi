@@ -386,7 +386,7 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	// instance_handle = RTI_PATIENT_PatientConfig_writer->register_instance(*instance);
 
 	/* Initialize PatientInfo data */
-	PatientInfoInstance->Id = (char *)"H1234HMS007";
+	PatientInfoInstance->Id.Id = (char *)"H1234HMS007";
 	PatientInfoInstance->Age = 33;
 	PatientInfoInstance->FirstName = (char *)"James";
 	PatientInfoInstance->LastName = (char *)"Bond";

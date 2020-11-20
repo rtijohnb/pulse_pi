@@ -5088,7 +5088,6 @@ DDS_TypeCode* RTI_PATIENT_PatientPulse_get_typecode()
 {
     static RTIBool is_initialized = RTI_FALSE;
 
-    static DDS_TypeCode RTI_PATIENT_PatientPulse_g_tc_Id_string = DDS_INITIALIZE_STRING_TYPECODE((32));
     static DDS_TypeCode RTI_PATIENT_PatientPulse_g_tc_readings_sequence = DDS_INITIALIZE_SEQUENCE_TYPECODE((100),NULL);
 
     static DDS_TypeCode_Member RTI_PATIENT_PatientPulse_g_tc_members[4]=
@@ -5106,7 +5105,7 @@ DDS_TypeCode* RTI_PATIENT_PatientPulse_get_typecode()
             0, /* Ignored */
             0, /* Ignored */
             NULL, /* Ignored */
-            RTI_CDR_KEY_MEMBER , /* Is a key? */
+            RTI_CDR_REQUIRED_MEMBER, /* Is a key? */
             DDS_PUBLIC_MEMBER,/* Member visibility */
             1,
             NULL, /* Ignored */
@@ -5195,14 +5194,12 @@ DDS_TypeCode* RTI_PATIENT_PatientPulse_get_typecode()
 
     RTI_PATIENT_PatientPulse_g_tc_readings_sequence._data._typeCode = (RTICdrTypeCode *)&DDS_g_tc_ulong_w_new;
     RTI_PATIENT_PatientPulse_g_tc_readings_sequence._data._sampleAccessInfo = &DDS_g_sai_ulong_seq;
-    RTI_PATIENT_PatientPulse_g_tc_members[0]._representation._typeCode = (RTICdrTypeCode *)&RTI_PATIENT_PatientPulse_g_tc_Id_string;
+    RTI_PATIENT_PatientPulse_g_tc_members[0]._representation._typeCode = (RTICdrTypeCode *)RTI_PATIENT__patient_id_t_get_typecode();
     RTI_PATIENT_PatientPulse_g_tc_members[1]._representation._typeCode = (RTICdrTypeCode *)RTI_TYPES_TimeStamp_t_get_typecode();
     RTI_PATIENT_PatientPulse_g_tc_members[2]._representation._typeCode = (RTICdrTypeCode *)& RTI_PATIENT_PatientPulse_g_tc_readings_sequence;
     RTI_PATIENT_PatientPulse_g_tc_members[3]._representation._typeCode = (RTICdrTypeCode *)&DDS_g_tc_octet_w_new;
 
     /* Initialize the values for member annotations. */
-    RTI_PATIENT_PatientPulse_g_tc_members[0]._annotations._defaultValue._d = RTI_XCDR_TK_STRING;
-    RTI_PATIENT_PatientPulse_g_tc_members[0]._annotations._defaultValue._u.string_value = (DDS_Char *) "";
 
     RTI_PATIENT_PatientPulse_g_tc_members[1]._annotations._defaultValue._d = RTI_XCDR_TK_LONGLONG;
     RTI_PATIENT_PatientPulse_g_tc_members[1]._annotations._defaultValue._u.long_long_value = 0ll;
@@ -5374,27 +5371,9 @@ RTIBool RTI_PATIENT_PatientPulse_initialize_w_params(
         return RTI_FALSE;
     }
 
-    if (allocParams->allocate_memory) {
-        sample->Id = DDS_String_alloc((32));
-        RTICdrType_copyStringEx(
-            &sample->Id,
-            "",
-            (32),
-            RTI_FALSE);
-        if (sample->Id == NULL) {
-            return RTI_FALSE;
-        }
-    } else {
-        if (sample->Id != NULL) {
-            RTICdrType_copyStringEx(
-                &sample->Id,
-                "",
-                (32),
-                RTI_FALSE);
-            if (sample->Id == NULL) {
-                return RTI_FALSE;
-            }
-        }
+    if (!RTI_PATIENT__patient_id_t_initialize_w_params(&sample->Id,
+    allocParams)) {
+        return RTI_FALSE;
     }
 
     sample->timestamp = 0ll;
@@ -5463,11 +5442,7 @@ void RTI_PATIENT_PatientPulse_finalize_w_params(
         return;
     }
 
-    if (sample->Id != NULL) {
-        DDS_String_free(sample->Id);
-        sample->Id=NULL;
-
-    }
+    RTI_PATIENT__patient_id_t_finalize_w_params(&sample->Id,deallocParams);
 
     if(!DDS_UnsignedLongSeq_finalize(&sample->readings)){
         return;
@@ -5503,11 +5478,10 @@ RTIBool RTI_PATIENT_PatientPulse_copy(
             return RTI_FALSE;
         }
 
-        if (!RTICdrType_copyStringEx (
-            &dst->Id, src->Id, 
-            (32) + 1, RTI_FALSE)){
+        if (!RTI_PATIENT__patient_id_t_copy(
+            &dst->Id,(const RTI_PATIENT__patient_id_t*)&src->Id)) {
             return RTI_FALSE;
-        }
+        } 
         if (!RTICdrType_copyLongLong (
             &dst->timestamp, &src->timestamp)) { 
             return RTI_FALSE;
@@ -5567,7 +5541,6 @@ DDS_TypeCode* RTI_PATIENT_PatientInfo_get_typecode()
 {
     static RTIBool is_initialized = RTI_FALSE;
 
-    static DDS_TypeCode RTI_PATIENT_PatientInfo_g_tc_Id_string = DDS_INITIALIZE_STRING_TYPECODE((32));
     static DDS_TypeCode RTI_PATIENT_PatientInfo_g_tc_FirstName_string = DDS_INITIALIZE_STRING_TYPECODE((32));
     static DDS_TypeCode RTI_PATIENT_PatientInfo_g_tc_LastName_string = DDS_INITIALIZE_STRING_TYPECODE((32));
     static DDS_TypeCode RTI_PATIENT_PatientInfo_g_tc_Sex_string = DDS_INITIALIZE_STRING_TYPECODE((32));
@@ -5587,7 +5560,7 @@ DDS_TypeCode* RTI_PATIENT_PatientInfo_get_typecode()
             0, /* Ignored */
             0, /* Ignored */
             NULL, /* Ignored */
-            RTI_CDR_KEY_MEMBER , /* Is a key? */
+            RTI_CDR_REQUIRED_MEMBER, /* Is a key? */
             DDS_PUBLIC_MEMBER,/* Member visibility */
             1,
             NULL, /* Ignored */
@@ -5728,7 +5701,7 @@ DDS_TypeCode* RTI_PATIENT_PatientInfo_get_typecode()
 
     RTI_PATIENT_PatientInfo_g_tc._data._annotations._allowedDataRepresentationMask = 5;
 
-    RTI_PATIENT_PatientInfo_g_tc_members[0]._representation._typeCode = (RTICdrTypeCode *)&RTI_PATIENT_PatientInfo_g_tc_Id_string;
+    RTI_PATIENT_PatientInfo_g_tc_members[0]._representation._typeCode = (RTICdrTypeCode *)RTI_PATIENT__patient_id_t_get_typecode();
     RTI_PATIENT_PatientInfo_g_tc_members[1]._representation._typeCode = (RTICdrTypeCode *)&RTI_PATIENT_PatientInfo_g_tc_FirstName_string;
     RTI_PATIENT_PatientInfo_g_tc_members[2]._representation._typeCode = (RTICdrTypeCode *)&RTI_PATIENT_PatientInfo_g_tc_LastName_string;
     RTI_PATIENT_PatientInfo_g_tc_members[3]._representation._typeCode = (RTICdrTypeCode *)&DDS_g_tc_ulong_w_new;
@@ -5737,8 +5710,6 @@ DDS_TypeCode* RTI_PATIENT_PatientInfo_get_typecode()
     RTI_PATIENT_PatientInfo_g_tc_members[6]._representation._typeCode = (RTICdrTypeCode *)&RTI_PATIENT_PatientInfo_g_tc_Sex_string;
 
     /* Initialize the values for member annotations. */
-    RTI_PATIENT_PatientInfo_g_tc_members[0]._annotations._defaultValue._d = RTI_XCDR_TK_STRING;
-    RTI_PATIENT_PatientInfo_g_tc_members[0]._annotations._defaultValue._u.string_value = (DDS_Char *) "";
 
     RTI_PATIENT_PatientInfo_g_tc_members[1]._annotations._defaultValue._d = RTI_XCDR_TK_STRING;
     RTI_PATIENT_PatientInfo_g_tc_members[1]._annotations._defaultValue._u.string_value = (DDS_Char *) "";
@@ -5932,27 +5903,9 @@ RTIBool RTI_PATIENT_PatientInfo_initialize_w_params(
         return RTI_FALSE;
     }
 
-    if (allocParams->allocate_memory) {
-        sample->Id = DDS_String_alloc((32));
-        RTICdrType_copyStringEx(
-            &sample->Id,
-            "",
-            (32),
-            RTI_FALSE);
-        if (sample->Id == NULL) {
-            return RTI_FALSE;
-        }
-    } else {
-        if (sample->Id != NULL) {
-            RTICdrType_copyStringEx(
-                &sample->Id,
-                "",
-                (32),
-                RTI_FALSE);
-            if (sample->Id == NULL) {
-                return RTI_FALSE;
-            }
-        }
+    if (!RTI_PATIENT__patient_id_t_initialize_w_params(&sample->Id,
+    allocParams)) {
+        return RTI_FALSE;
     }
 
     if (allocParams->allocate_memory) {
@@ -6076,11 +6029,8 @@ void RTI_PATIENT_PatientInfo_finalize_w_params(
         return;
     }
 
-    if (sample->Id != NULL) {
-        DDS_String_free(sample->Id);
-        sample->Id=NULL;
+    RTI_PATIENT__patient_id_t_finalize_w_params(&sample->Id,deallocParams);
 
-    }
     if (sample->FirstName != NULL) {
         DDS_String_free(sample->FirstName);
         sample->FirstName=NULL;
@@ -6127,11 +6077,10 @@ RTIBool RTI_PATIENT_PatientInfo_copy(
             return RTI_FALSE;
         }
 
-        if (!RTICdrType_copyStringEx (
-            &dst->Id, src->Id, 
-            (32) + 1, RTI_FALSE)){
+        if (!RTI_PATIENT__patient_id_t_copy(
+            &dst->Id,(const RTI_PATIENT__patient_id_t*)&src->Id)) {
             return RTI_FALSE;
-        }
+        } 
         if (!RTICdrType_copyStringEx (
             &dst->FirstName, src->FirstName, 
             (32) + 1, RTI_FALSE)){
@@ -6206,8 +6155,6 @@ DDS_TypeCode* RTI_PATIENT_PatientConfig_get_typecode()
 {
     static RTIBool is_initialized = RTI_FALSE;
 
-    static DDS_TypeCode RTI_PATIENT_PatientConfig_g_tc_Id_string = DDS_INITIALIZE_STRING_TYPECODE((32));
-
     static DDS_TypeCode_Member RTI_PATIENT_PatientConfig_g_tc_members[3]=
     {
 
@@ -6223,7 +6170,7 @@ DDS_TypeCode* RTI_PATIENT_PatientConfig_get_typecode()
             0, /* Ignored */
             0, /* Ignored */
             NULL, /* Ignored */
-            RTI_CDR_KEY_MEMBER , /* Is a key? */
+            RTI_CDR_REQUIRED_MEMBER, /* Is a key? */
             DDS_PUBLIC_MEMBER,/* Member visibility */
             1,
             NULL, /* Ignored */
@@ -6292,13 +6239,11 @@ DDS_TypeCode* RTI_PATIENT_PatientConfig_get_typecode()
 
     RTI_PATIENT_PatientConfig_g_tc._data._annotations._allowedDataRepresentationMask = 5;
 
-    RTI_PATIENT_PatientConfig_g_tc_members[0]._representation._typeCode = (RTICdrTypeCode *)&RTI_PATIENT_PatientConfig_g_tc_Id_string;
+    RTI_PATIENT_PatientConfig_g_tc_members[0]._representation._typeCode = (RTICdrTypeCode *)RTI_PATIENT__patient_id_t_get_typecode();
     RTI_PATIENT_PatientConfig_g_tc_members[1]._representation._typeCode = (RTICdrTypeCode *)&DDS_g_tc_ulong_w_new;
     RTI_PATIENT_PatientConfig_g_tc_members[2]._representation._typeCode = (RTICdrTypeCode *)&DDS_g_tc_ulong_w_new;
 
     /* Initialize the values for member annotations. */
-    RTI_PATIENT_PatientConfig_g_tc_members[0]._annotations._defaultValue._d = RTI_XCDR_TK_STRING;
-    RTI_PATIENT_PatientConfig_g_tc_members[0]._annotations._defaultValue._u.string_value = (DDS_Char *) "";
 
     RTI_PATIENT_PatientConfig_g_tc_members[1]._annotations._defaultValue._d = RTI_XCDR_TK_ULONG;
     RTI_PATIENT_PatientConfig_g_tc_members[1]._annotations._defaultValue._u.ulong_value = 200;
@@ -6464,27 +6409,9 @@ RTIBool RTI_PATIENT_PatientConfig_initialize_w_params(
         return RTI_FALSE;
     }
 
-    if (allocParams->allocate_memory) {
-        sample->Id = DDS_String_alloc((32));
-        RTICdrType_copyStringEx(
-            &sample->Id,
-            "",
-            (32),
-            RTI_FALSE);
-        if (sample->Id == NULL) {
-            return RTI_FALSE;
-        }
-    } else {
-        if (sample->Id != NULL) {
-            RTICdrType_copyStringEx(
-                &sample->Id,
-                "",
-                (32),
-                RTI_FALSE);
-            if (sample->Id == NULL) {
-                return RTI_FALSE;
-            }
-        }
+    if (!RTI_PATIENT__patient_id_t_initialize_w_params(&sample->Id,
+    allocParams)) {
+        return RTI_FALSE;
     }
 
     sample->PulseHighThreshold = 200;
@@ -6537,11 +6464,7 @@ void RTI_PATIENT_PatientConfig_finalize_w_params(
         return;
     }
 
-    if (sample->Id != NULL) {
-        DDS_String_free(sample->Id);
-        sample->Id=NULL;
-
-    }
+    RTI_PATIENT__patient_id_t_finalize_w_params(&sample->Id,deallocParams);
 
 }
 
@@ -6573,11 +6496,10 @@ RTIBool RTI_PATIENT_PatientConfig_copy(
             return RTI_FALSE;
         }
 
-        if (!RTICdrType_copyStringEx (
-            &dst->Id, src->Id, 
-            (32) + 1, RTI_FALSE)){
+        if (!RTI_PATIENT__patient_id_t_copy(
+            &dst->Id,(const RTI_PATIENT__patient_id_t*)&src->Id)) {
             return RTI_FALSE;
-        }
+        } 
         if (!RTICdrType_copyUnsignedLong (
             &dst->PulseHighThreshold, &src->PulseHighThreshold)) { 
             return RTI_FALSE;
