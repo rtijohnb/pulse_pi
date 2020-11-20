@@ -337,6 +337,7 @@ extern "C" int pulse_main(int domainId) {
 	DDSDynamicDataReader * patient_config_reader = NULL;
     DDS_DynamicData * patient_info_data = NULL;
     DDS_DynamicData * patient_pulse_data = NULL;
+    DDS_DynamicData * _id;
     DDS_ReturnCode_t retcode;
 
     const char *type_name = NULL;
@@ -448,7 +449,10 @@ extern "C" int pulse_main(int domainId) {
     } 
 
   	/* Initialize PatientInfo data */
-	retcode = patient_info_data->set_string("Id", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED, this_device_patient_id);
+    retcode = _id->set_string("Id", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED, this_device_patient_id);
+    //https://community.rti.com/examples/dynamic-data-nested-structures
+	//retcode = patient_info_data->set_complex_member("Id", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED, _id);
+    retcode = patient_info_data->set_string("Id", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED, this_device_patient_id); // does not work
     retcode = patient_info_data->set_ulong("Age", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED, 33);
     retcode = patient_info_data->set_string("FirstName", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED, (char *)"James");
     retcode = patient_info_data->set_string("LastName", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED, (char *)"Bond");
