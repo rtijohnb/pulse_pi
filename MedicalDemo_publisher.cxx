@@ -215,6 +215,20 @@ extern "C" int publisher_main(int domainId, int sample_count)
 	return(0);
     }
 
+    /*Point to the correct xml file */
+    DDSDomainParticipantFactory *factory =
+		DDSDomainParticipantFactory::get_instance();
+    DDS_DomainParticipantFactoryQos factoryQos;
+    retcode = factory->get_qos(factoryQos);
+    if (retcode != DDS_RETCODE_OK) {
+	printf("Can not get_qos\n");
+	return(0);
+    }
+    const char *url_profiles[1] = {"MedicalDemo.xml"};
+    factoryQos.profile.url_profile.from_array(url_profiles, 1);
+    factoryQos.profile.ignore_resource_profile = DDS_BOOLEAN_TRUE;
+    factory->set_qos(factoryQos);
+
 
     /* Set up the DDS Participant */
     participant = DDSTheParticipantFactory->create_participant(
