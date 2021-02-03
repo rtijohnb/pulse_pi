@@ -1,0 +1,10 @@
+if [ 2 -eq `ps auxw|grep 'rtiroutingservice.*PulsePiRS'|wc -l` ];
+then
+     echo "It looks like routing service is already running, try killing it first"
+     echo "     kill `ps axw|grep 'rtiroutingservice.*PulsePiRS'|awk '{$1=$1}1'|cut -d ' ' -f 1|head -n 1`"
+     exit
+fi
+export NDDS_QOS_PROFILES=file://$PULSE_DEMO_HOME/pulse_sysdesigner/MedicalDemo.xml | //$PULSE_DEMO_HOME/pulse_pi/MedicalDemo.xml | //$PULSE_DEMO_HOME/MedicalDemo.xml
+echo "Running pulse_pi"
+./objs/armv6vfphLinux3.xgcc4.7.2/MedicalDemo_publisher &
+
