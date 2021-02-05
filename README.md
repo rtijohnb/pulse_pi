@@ -14,13 +14,14 @@ To give you context, the picture below shows the entire system.
 
 Note: you can run the "pulse_pi" router at any point on your local DDS-Databus (i.e., on your Pi or laptop if both are connected to the same network.)  Optionally, you might want to run a local WIS on your laptop. (DDS-Databus) - see companion repo: https://github.com/rtijohnb/pulse_wis.
 
+To setup this example:
+======================
 This procedure involves downloading the RTI's Connext DDS raspbian target to your host machine and copying them to the pi. This is because there is no host package for the Raspberry to perform direct installation. Your choices for Raspbian are rti_connext_dds-5.3.1-pro-target-armv6vfphLinux3.xgcc4.7.2.rtipkg or rti_connext_dds-6.0.1-pro-target-armv6vfphLinux3.xgcc4.7.2.rtipkg.  Medical Demo uses Connext 6.0.1.
 
 Note: Both of these 5.3.1 and 6.0.1 work fine for a Raspberry 3B+ (ARM7) using gcc versions 8.3 on Connext Pro 6.0.1 and gcc version 6.3 on Connext Pro 5.3.1
        This assumes you already have a 6.0.1 host installed on your PC (you'll need the $NDDSHOME/include directory for compilation on the Raspberry)
 
-To setup this example:
-======================
+
 Install connext_dds-6.0.1-pro-target-armv6vfphLinux3.xgcc4.7.2.rtipkg on the Raspberry
    - set your host NDDSHOME environment variable to your host rti_connext_dds-6.0.1/
    - This is needed as the target rtipkg contains only the libraries and resources directory - you will get the /include from your host installation
