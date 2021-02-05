@@ -74,7 +74,7 @@ Cross compiling:
 
 To Load and Build the pulse_pi application:
 ===========================================
-First - On the Pi, from a where you want your Medical Demo project to reside, clone of both the pulse_pi repo from https://github.com/rtijohnb/pulse_pi as well as the System Designer repo from https://github.com/rtijohnb/pulse_sysdesigner (you will want the system xml file).
+First - On the Pi, from where you want your Medical Demo project to reside, clone of both the pulse_pi repo from https://github.com/rtijohnb/pulse_pi as well as the System Designer repo from https://github.com/rtijohnb/pulse_sysdesigner (you will want the system xml file).
 ```    
     - git clone https://github.com/rtijohnb/pulse_pi
     - git clone https://github.com/rtijohnb/pulse_sysdesigner
