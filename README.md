@@ -1,15 +1,24 @@
 # pulse_pi
-
 ** Raspberry Pi code to read the pulse info from the Arduino and publish it via DDS
+
+![](https://github.com/rtijohnb/pulse_pi/blob/main/RtiAsOne.png)
 
 Overview:
 =========
 
-This procedure involves downloading the raspbian target to your host machine and copying them to the pi. This is because there is no host package for the Raspberry to perform direct installation. Your choices for Raspbian are rti_connext_dds-5.3.1-pro-target-armv6vfphLinux3.xgcc4.7.2.rtipkg or rti_connext_dds-6.0.1-pro-target-armv6vfphLinux3.xgcc4.7.2.rtipkg.  Medical Demo uses Connext 6.0.1
+In these instructions, we'll layout how to load RTI's Connext DDS onto a Raspbery Pi (3B+ or better recommended) and how to load and build this medical pulse monitoring application. You will also need to run a local "pulse_pi" routing service to connext this application to the RTI Web Integration Service (WIS) running in the amazon cloud (http://50.18.214.8:8090/). Refer to the related companion repo for routing service https://github.com/rtijohnb/pulse_aws_routing. 
 
-Notes: Both of these images worked fine for a Raspberry 3B+ (ARM7) using gcc versions 8.3 on Connext Pro 6.0.1 and gcc version 6.3 on Connext Pro 5.3.1
+To give you context, the picture below shows the entire system.
+
+![](https://github.com/rtijohnb/pulse_pi/blob/main/MedicalDemoArch.png)
+
+Note: you can run the "pulse_pi" router at any point on your local DDS-Databus (i.e., on your Pi or laptop if both are connected to the same network.)  Optionally, you might want to run a local WIS on your laptop. (DDS-Databus) - see companion repo: https://github.com/rtijohnb/pulse_wis.
+
+This procedure involves downloading the RTI's Connext DDS raspbian target to your host machine and copying them to the pi. This is because there is no host package for the Raspberry to perform direct installation. Your choices for Raspbian are rti_connext_dds-5.3.1-pro-target-armv6vfphLinux3.xgcc4.7.2.rtipkg or rti_connext_dds-6.0.1-pro-target-armv6vfphLinux3.xgcc4.7.2.rtipkg.  Medical Demo uses Connext 6.0.1.
+
+Note: Both of these 5.3.1 and 6.0.1 work fine for a Raspberry 3B+ (ARM7) using gcc versions 8.3 on Connext Pro 6.0.1 and gcc version 6.3 on Connext Pro 5.3.1
        This assumes you already have a 6.0.1 host installed on your PC (you'll need the $NDDSHOME/include directory for compilation on the Raspberry)
-**
+
 To setup this example:
 ======================
 Install connext_dds-6.0.1-pro-target-armv6vfphLinux3.xgcc4.7.2.rtipkg on the Raspberry
@@ -28,15 +37,17 @@ Install connext_dds-6.0.1-pro-target-armv6vfphLinux3.xgcc4.7.2.rtipkg on the Ras
  scp -r ./Downloads/rti_connext_dds_6.0.1-pro-target-arm6vfphLinux3.xgcc4.7.2/rti_connext_dds-6.0.1/resource pi@[desthost]: ~/rti_connext_dds-6.0.1/
  scp -r $NDDSHOME/include pi@[desthost]/rti_connext_dds-6.0.1/   
 * Resultant Raspberry target directory structure will look like: 
-~/rti_connext-6.0.1
-|
-+ --- include/
-|
-+-- lib/
-|
-+-- resource/
-|
-+--bin/ 
+```
+   ~/rti_connext-6.0.1/
+    |
+    + --- include/
+    |
+    +-- lib/
+    |
+    +-- resource/
+    |
+    +--bin/ 
+```
           
 Note if you wish to run Routing Service on the Raspberry, you should copy from your host via:
 scp -r ./Downloads/rti_connext_dds_6.0.1-pro-target-arm6vfphLinux3.xgcc4.7.2/rti_connext_dds-6.0.1/resource/app/bin/arm6vfphLinux3.xgcc4.7.2/ pi@[desthost]:~/rti_connext-6.0.1/
@@ -50,7 +61,7 @@ Cross compiling:
    - Need DDS 6.0.1 with the package armv6vfphLinux3.xgcc4.7.2
    - Need to install ARM compiler for cross compilation if not building on the raspberry pi.  Use the command:
   	"sudo apt-get install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf"
-   - Makesure the environsment variable NDDSHOME is set to point to your DDS 6.0.1 installation direction.
+   - Makesure the environment variable NDDSHOME is set to point to your DDS 6.0.1 installation direction.
    - Copy the resulting executable to the Raspberry Pi
    - On the Raspberry Pi create the directory structure as noted above.  The include directory in not needed on the target when cross compiling.
        	- Create the directory rti_connext_dds-6.0.1.
@@ -60,8 +71,14 @@ Cross compiling:
 
 
 
-To Build the pulse_pi application:
-====================================
+To Load and Build the pulse_pi application:
+===========================================
+First - On the Pi, from a where you want your Medical Demo project to reside, clone of both the pulse_pi repo from https://github.com/rtijohnb/pulse_pi as well as the System Designer repo from https://github.com/rtijohnb/pulse_sysdesigner (you will want the system xml file).
+```    
+    - git clone https://github.com/rtijohnb/pulse_pi
+    - git clone https://github.com/rtijohnb/pulse_sysdesigner
+```
+
 From your command shell, type:
 Set NDDSHOME environment variable
 > make -f makefile_MedicalDemo_armv6vfphLinux3.xgcc4.7.2
