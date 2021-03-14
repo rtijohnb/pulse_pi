@@ -35,54 +35,55 @@ void handle_SIGINT(int unused)
   // On CTRL+C - abort! //
   run_flag = false;
 }
-class WaitsetPatientPulseWriterInfo {
+
+class WaitsetWriterInfo {
     // holds waitset info needed for the writer waitset processing thread
     public:
-        DDSDynamicDataWriter * patient_pulse_writer;
+        DDSDynamicDataWriter * writer;
 		bool * run_flag;
 } ;
 
-void*  pthreadToProcPatientPulseWriterEvents(void  * waitsetPatientPulseWriterInfo) {
-	WaitsetPatientPulseWriterInfo * myPatientPulseWaitsetInfo;
-    myPatientPulseWaitsetInfo = (WaitsetPatientPulseWriterInfo *)waitsetPatientPulseWriterInfo;
+void*  pthreadToProcWriterEvents(void  * waitsetWriterInfo) {
+	WaitsetWriterInfo * myWaitsetInfo;
+    myWaitsetInfo = (WaitsetWriterInfo *)waitsetWriterInfo;
 	DDSWaitSet * waitset = waitset = new DDSWaitSet();;
     DDS_ReturnCode_t retcode;
     DDSConditionSeq active_conditions_seq;
 
-    printf("Created PatientPulseWriter Pthread\n");
+    printf("Created Writer Pthread\n");
     // Configure Waitset for Writer Status ****
-    DDSStatusCondition *status_condition = myPatientPulseWaitsetInfo->patient_pulse_writer->get_statuscondition();
+    DDSStatusCondition *status_condition = myWaitsetInfo->writer->get_statuscondition();
     if (status_condition == NULL) {
-        printf("PatientPulseWriter: get_statuscondition error\n");
-        goto end_patient_pulse_writer_thread;
+        printf("Writer thread: get_statuscondition error\n");
+        goto end_writer_thread;
     }
 
     // Set enabled statuses
     retcode = status_condition->set_enabled_statuses(
             DDS_PUBLICATION_MATCHED_STATUS);
     if (retcode != DDS_RETCODE_OK) {
-        printf("PatientPulseWriter: set_enabled_statuses error\n");
-        goto end_patient_pulse_writer_thread;
+        printf("Writer thread: set_enabled_statuses error\n");
+        goto end_writer_thread;
     }
 
     // Attach Status Conditions to the above waitset
     retcode = waitset->attach_condition(status_condition);
     if (retcode != DDS_RETCODE_OK) {
-        printf("PatientPulseWriter: attach_condition error\n");
-        goto end_patient_pulse_writer_thread;
+        printf("Writer thread: attach_condition error\n");
+        goto end_writer_thread;
     }
 
     // wait() blocks execution of the thread until one or more attached condition triggers  
 	// thread exits upon ^c or error
-    while ((* myPatientPulseWaitsetInfo->run_flag) == true) { 
+    while ((* myWaitsetInfo->run_flag) == true) { 
         retcode = waitset->wait(active_conditions_seq, DDS_DURATION_INFINITE);
         /* We get to timeout if no conditions were triggered */
         if (retcode == DDS_RETCODE_TIMEOUT) {
-            printf("PatientPulseWriter: Wait timed out!! No conditions were triggered.\n");
+            printf("Writer thread: Wait timed out!! No conditions were triggered.\n");
             continue;
         } else if (retcode != DDS_RETCODE_OK) {
-            printf("PatientPulseWriter: wait returned error: %d\n", retcode);
-            goto end_patient_pulse_writer_thread;
+            printf("Writer thread: wait returned error: %d\n", retcode);
+            goto end_writer_thread;
         }
 
         /* Get the number of active conditions */
@@ -92,109 +93,35 @@ void*  pthreadToProcPatientPulseWriterEvents(void  * waitsetPatientPulseWriterIn
             /* Compare with Status Conditions */
             if (active_conditions_seq[i] == status_condition) {
                 DDS_StatusMask triggeredmask =
-                        myPatientPulseWaitsetInfo->patient_pulse_writer->get_status_changes();
+                        myWaitsetInfo->writer->get_status_changes();
 
                 if (triggeredmask & DDS_PUBLICATION_MATCHED_STATUS) {
 					DDS_PublicationMatchedStatus st;
-                	myPatientPulseWaitsetInfo->patient_pulse_writer->get_publication_matched_status(st);
-					printf("\nPatientPulseWriter Subs: %d %d\n", st.current_count, st.current_count_change);
+                	myWaitsetInfo->writer->get_publication_matched_status(st);
+					printf("\nFooWriter Subs: %d %d\n", st.current_count, st.current_count_change);
                 }
             } else {
                 // writers can only have status condition
-                printf ("PatientPulseWriter: False Writer Event Trigger");
+                printf ("FooWriter: False Writer Event Trigger");
             }
         }
 	} // While (run_flag)
-	end_patient_pulse_writer_thread: // reached by ^C or an error
-	printf("Patient Pulse Writer: Pthread Exiting\n");
+	end_writer_thread: // reached by ^C or an error
+	printf("Writer: Pthread Exiting\n");
 	exit(0);
 }
 
-class WaitsetPatientInfoWriterInfo {
-    // holds waitset info needed for the writer waitset processing thread
-    public:
-        DDSDynamicDataWriter * patient_info_writer;
-		bool * run_flag;
-} ;
 
-void*  pthreadToProcPatientInfoWriterEvents(void  * waitsetPatientInfoWriterInfo) {
-	WaitsetPatientInfoWriterInfo * myPatientInfoWaitsetInfo;
-    myPatientInfoWaitsetInfo = (WaitsetPatientInfoWriterInfo *)waitsetPatientInfoWriterInfo;
-	DDSWaitSet * waitset = waitset = new DDSWaitSet();;
-    DDS_ReturnCode_t retcode;
-    DDSConditionSeq active_conditions_seq;
-
-    printf("Created PatientInfoWriter Pthread\n");
-    // Configure Waitset for Writer Status ****
-    DDSStatusCondition *status_condition = myPatientInfoWaitsetInfo->patient_info_writer->get_statuscondition();
-    if (status_condition == NULL) {
-        printf("PatientInfoWriter: get_statuscondition error\n");
-        goto end_patient_info_writer_thread;
-    }
-
-    // Set enabled statuses
-    retcode = status_condition->set_enabled_statuses(
-            DDS_PUBLICATION_MATCHED_STATUS);
-    if (retcode != DDS_RETCODE_OK) {
-        printf("PatientInfoWriter: set_enabled_statuses error\n");
-        goto end_patient_info_writer_thread;
-    }
-
-    // Attach Status Conditions to the above waitset
-    retcode = waitset->attach_condition(status_condition);
-    if (retcode != DDS_RETCODE_OK) {
-        printf("PatientInfoWriter: attach_condition error\n");
-        goto end_patient_info_writer_thread;
-    }
-
-    // wait() blocks execution of the thread until one or more attached conditions trigger
-	// thread exits upon ^c or error
-    while ((* myPatientInfoWaitsetInfo->run_flag) == true) { 
-        retcode = waitset->wait(active_conditions_seq, DDS_DURATION_INFINITE);
-        /* We get to timeout if no conditions were triggered */
-        if (retcode == DDS_RETCODE_TIMEOUT) {
-            printf("PatientInfoWriter: Wait timed out!! No conditions were triggered.\n");
-            continue;
-        } else if (retcode != DDS_RETCODE_OK) {
-            printf("PatientInfoWriter: wait returned error: %d\n", retcode);
-            goto end_patient_info_writer_thread;
-        }
-
-        /* Get the number of active conditions */
-        int active_conditions = active_conditions_seq.length();
-
-        for (int i = 0; i < active_conditions; ++i) {
-            /* Compare with Status Conditions */
-            if (active_conditions_seq[i] == status_condition) {
-                DDS_StatusMask triggeredmask =
-                        myPatientInfoWaitsetInfo->patient_info_writer->get_status_changes();
-
-                if (triggeredmask & DDS_PUBLICATION_MATCHED_STATUS) {
-					DDS_PublicationMatchedStatus st;
-                	myPatientInfoWaitsetInfo->patient_info_writer->get_publication_matched_status(st);
-					printf("\nPatientInfoWriter Subs: %d %d\n", st.current_count, st.current_count_change);
-                }
-            } else {
-                // writers can only have status condition
-                printf ("PatientInfoWriter: False Writer Event Trigger");
-            }
-        }
-	} // While (run_flag)
-	end_patient_info_writer_thread: // reached by ^C or an error
-	printf("PatientInfoWriter: Pthread Exiting\n");
-	exit(0);
-}
-
-class WaitsetPatientConfigReaderInfo {
+class WaitsetReaderInfo {
     // holds waitset info needed for the Reader waitset processing thread
     public:
-        DDSDynamicDataReader * patient_config_reader;
+        DDSDynamicDataReader * reader;
 		bool * run_flag;
 } ;
 
-void*  pthreadToProcPatientConfigReaderEvents(void *waitsetPatientConfigReaderInfo) {
-    WaitsetPatientConfigReaderInfo * myPatientConfigWaitsetInfo;
-    myPatientConfigWaitsetInfo = (WaitsetPatientConfigReaderInfo *)waitsetPatientConfigReaderInfo;
+void*  pthreadToProcReaderEvents(void *waitsetReaderInfo) {
+    WaitsetReaderInfo * myWaitsetInfo;
+    myWaitsetInfo = (WaitsetReaderInfo *)waitsetReaderInfo;
 	DDSStatusCondition *status_condition =  NULL;
 	DDSReadCondition * read_condition = NULL;
 	DDSWaitSet *waitset = new DDSWaitSet();
@@ -203,54 +130,54 @@ void*  pthreadToProcPatientConfigReaderEvents(void *waitsetPatientConfigReaderIn
 	DDS_DynamicDataSeq patient_config_data_seq;
 	DDS_SampleInfoSeq patient_config_info_seq;
 
-    printf("Created PatientConfigReader Pthread\n");
+    printf("Created Reader Pthread\n");
 
     // Create read condition
-    read_condition = myPatientConfigWaitsetInfo->patient_config_reader->create_readcondition(
+    read_condition = myWaitsetInfo->reader->create_readcondition(
             DDS_NOT_READ_SAMPLE_STATE,
             DDS_ANY_VIEW_STATE,
             DDS_ANY_INSTANCE_STATE);
     if (read_condition == NULL) {
-        printf("PatientConfigReader: create_readcondition error\n");
-		goto end_patient_config_reader_thread;
+        printf("Reader thread: create_readcondition error\n");
+		goto end_reader_thread;
     }
 
     //  Get status conditions
-    status_condition = myPatientConfigWaitsetInfo->patient_config_reader->get_statuscondition();
+    status_condition = myWaitsetInfo->reader->get_statuscondition();
     if (status_condition == NULL) {
-        printf("PatientConfigReader: get_statuscondition error\n");
- 		goto end_patient_config_reader_thread;
+        printf("Reader thread: get_statuscondition error\n");
+ 		goto end_reader_thread;
     }
 
     // Set enabled statuses
     retcode = status_condition->set_enabled_statuses(DDS_SUBSCRIPTION_MATCHED_STATUS);
     if (retcode != DDS_RETCODE_OK) {
-        printf("PatientConfigReader: set_enabled_statuses error\n");
- 		goto end_patient_config_reader_thread;
+        printf("Reader thread: set_enabled_statuses error\n");
+ 		goto end_reader_thread;
     }   
 
     /* Attach Read Conditions */
     retcode = waitset->attach_condition(read_condition);
     if (retcode != DDS_RETCODE_OK) {
-        printf("PatientConfigReader: attach_condition error\n");
-		goto end_patient_config_reader_thread;
+        printf("Reader thread: attach_condition error\n");
+		goto end_reader_thread;
     }
 
     /* Attach Status Conditions */
     retcode = waitset->attach_condition(status_condition);
     if (retcode != DDS_RETCODE_OK) {
-        printf("PatientConfigReader: attach_condition error\n");
-		goto end_patient_config_reader_thread;
+        printf("Reader thread: attach_condition error\n");
+		goto end_reader_thread;
     }
 
-	while ((* myPatientConfigWaitsetInfo->run_flag) == true) {
+	while ((* myWaitsetInfo->run_flag) == true) {
        	retcode = waitset->wait(active_conditions_seq, DDS_DURATION_INFINITE);
         if (retcode == DDS_RETCODE_TIMEOUT) {
-            printf("PatientConfigReader: Wait timed out!! No conditions were triggered.\n");
+            printf("Reader thread: Wait timed out!! No conditions were triggered.\n");
             continue;
         } else if (retcode != DDS_RETCODE_OK) {
-            printf("PatientConfigReader:  wait returned error: %d\n", retcode);
-            goto end_patient_config_reader_thread;
+            printf("Reader thread:  wait returned error: %d\n", retcode);
+            goto end_reader_thread;
         }
 
         int active_conditions = active_conditions_seq.length();
@@ -260,17 +187,17 @@ void*  pthreadToProcPatientConfigReaderEvents(void *waitsetPatientConfigReaderIn
                 /* Get the status changes so we can check which status
                  * condition triggered. */
                 DDS_StatusMask triggeredmask =
-                        myPatientConfigWaitsetInfo->patient_config_reader->get_status_changes();
+                        myWaitsetInfo->reader->get_status_changes();
 
                 /* Subscription matched */
                 if (triggeredmask & DDS_SUBSCRIPTION_MATCHED_STATUS) {
                     DDS_SubscriptionMatchedStatus st;
-                    myPatientConfigWaitsetInfo->patient_config_reader->get_subscription_matched_status(st);
-					printf("\nPatientConfigReader: Pubs: %d %d\n", st.current_count, st.current_count_change);
+                    myWaitsetInfo->reader->get_subscription_matched_status(st);
+					printf("\nReader thread: Pubs: %d %d\n", st.current_count, st.current_count_change);
                 }
             } else if (active_conditions_seq[i] == read_condition) { 
                 // Get the latest samples
-				retcode = myPatientConfigWaitsetInfo->patient_config_reader->take(
+				retcode = myWaitsetInfo->reader->take(
 							patient_config_data_seq, patient_config_info_seq, DDS_LENGTH_UNLIMITED,
 							DDS_ANY_SAMPLE_STATE, DDS_ANY_VIEW_STATE, DDS_ANY_INSTANCE_STATE);
 				if (retcode == DDS_RETCODE_OK) {
@@ -278,30 +205,30 @@ void*  pthreadToProcPatientConfigReaderEvents(void *waitsetPatientConfigReaderIn
 						if (patient_config_info_seq[i].valid_data) {                  
 							retcode=patient_config_data_seq[i].get_ulong(myPatientConfigInfo.pulse_high_threshold, 
 									"PulseHighThreshold", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED);
-							if (retcode != DDS_RETCODE_OK) goto end_patient_config_reader_thread;
+							if (retcode != DDS_RETCODE_OK) goto end_reader_thread;
 							retcode=patient_config_data_seq[i].get_ulong(myPatientConfigInfo.pulse_low_threshold,
 									"PulseLowThreshold", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED);
-							if (retcode != DDS_RETCODE_OK) goto end_patient_config_reader_thread;
-							printf("PatientConfigReader: PHT %d, PLT %d\n", myPatientConfigInfo.pulse_high_threshold, myPatientConfigInfo.pulse_low_threshold);
+							if (retcode != DDS_RETCODE_OK) goto end_reader_thread;
+							printf("Reader Thread: PHT %d, PLT %d\n", myPatientConfigInfo.pulse_high_threshold, myPatientConfigInfo.pulse_low_threshold);
                             fflush(stdout);
 						}
 					}
 				} else if (retcode == DDS_RETCODE_NO_DATA) {
 					continue;
 				} else {
-					fprintf(stderr, "PatientConfigReader: read data error %d\n", retcode);
-					goto end_patient_config_reader_thread;
+					fprintf(stderr, "Reader thread: read data error %d\n", retcode);
+					goto end_reader_thread;
 				}
-                retcode = myPatientConfigWaitsetInfo->patient_config_reader->return_loan(patient_config_data_seq, patient_config_info_seq);
+                retcode = myWaitsetInfo->reader->return_loan(patient_config_data_seq, patient_config_info_seq);
                 if (retcode != DDS_RETCODE_OK) {
-                    fprintf(stderr, "return_loan error %d\n", retcode);
-                    goto end_patient_config_reader_thread;
+                    fprintf(stderr, "Reader thread:return_loan error %d\n", retcode);
+                    goto end_reader_thread;
                 }  
 			}
 		}
 	} // While (run_flag)
-	end_patient_config_reader_thread: // reached by ^C or an error
-	printf("PatientConfigReader: Pthread Exiting\n");
+	end_reader_thread: // reached by ^C or an error
+	printf("Reader thread: Pthread Exiting\n");
 	exit(0);
 }
 
@@ -423,23 +350,23 @@ extern "C" int pulse_main(int domainId) {
     }    
 
  	// Turn up a waitset threads and hang on them for writer events and reader events and data
-    WaitsetPatientPulseWriterInfo myWaitsetPatientPulseWriterInfo;
-    myWaitsetPatientPulseWriterInfo.patient_pulse_writer = patient_pulse_writer;
+    WaitsetWriterInfo myWaitsetPatientPulseWriterInfo;
+    myWaitsetPatientPulseWriterInfo.writer = patient_pulse_writer;
 	myWaitsetPatientPulseWriterInfo.run_flag = &run_flag;
     pthread_t wpp_tid;
-    pthread_create(&wpp_tid, NULL, pthreadToProcPatientPulseWriterEvents, (void*) &myWaitsetPatientPulseWriterInfo);
+    pthread_create(&wpp_tid, NULL, pthreadToProcWriterEvents, (void*) &myWaitsetPatientPulseWriterInfo);
 
-	WaitsetPatientInfoWriterInfo myWaitsetPatientInfoWriterInfo;
-    myWaitsetPatientInfoWriterInfo.patient_info_writer = patient_info_writer;
+	WaitsetWriterInfo myWaitsetPatientInfoWriterInfo;
+    myWaitsetPatientInfoWriterInfo.writer = patient_info_writer;
 	myWaitsetPatientInfoWriterInfo.run_flag = &run_flag;
     pthread_t wpi_tid;
-    pthread_create(&wpi_tid, NULL, pthreadToProcPatientInfoWriterEvents, (void*) &myWaitsetPatientInfoWriterInfo);
+    pthread_create(&wpi_tid, NULL, pthreadToProcWriterEvents, (void*) &myWaitsetPatientInfoWriterInfo);
 
-    WaitsetPatientConfigReaderInfo myWaitsetPatientConfigReaderInfo;
-    myWaitsetPatientConfigReaderInfo.patient_config_reader = patient_config_reader;
+    WaitsetReaderInfo myWaitsetPatientConfigReaderInfo;
+    myWaitsetPatientConfigReaderInfo.reader = patient_config_reader;
 	myWaitsetPatientConfigReaderInfo.run_flag = &run_flag;
     pthread_t rpc_tid;
-    pthread_create(&rpc_tid, NULL, pthreadToProcPatientConfigReaderEvents, (void*) &myWaitsetPatientConfigReaderInfo);
+    pthread_create(&rpc_tid, NULL, pthreadToProcReaderEvents, (void*) &myWaitsetPatientConfigReaderInfo);
 
     patient_info_data = patient_info_writer->create_data(DDS_DYNAMIC_DATA_PROPERTY_DEFAULT);
     if (patient_info_data == NULL) {
