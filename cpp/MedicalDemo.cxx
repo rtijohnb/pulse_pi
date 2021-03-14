@@ -42,9 +42,8 @@ class WaitsetWriterInfo {
         WaitsetWriterInfo(std::string writerName) {
             myName = writerName;
         }
-        void print_myname() {
-            std::cout << myName << std::endl;
-        }
+        std::string me(){ return myName; }
+
         DDSDynamicDataWriter * writer;
 		bool * run_flag;
     private:
@@ -58,8 +57,7 @@ void*  pthreadToProcWriterEvents(void  * waitsetWriterInfo) {
     DDS_ReturnCode_t retcode;
     DDSConditionSeq active_conditions_seq;
 
-    printf("Created Writer Pthread ");
-    myWaitsetInfo->print_myname();
+    std::cout << "Created Writer Pthread: " << myWaitsetInfo->me() << std::endl;
 
     // Configure Waitset for Writer Status ****
     DDSStatusCondition *status_condition = myWaitsetInfo->writer->get_statuscondition();
@@ -108,18 +106,17 @@ void*  pthreadToProcWriterEvents(void  * waitsetWriterInfo) {
                 if (triggeredmask & DDS_PUBLICATION_MATCHED_STATUS) {
 					DDS_PublicationMatchedStatus st;
                 	myWaitsetInfo->writer->get_publication_matched_status(st);
-                    myWaitsetInfo->print_myname();
-					printf("Writer Subs: %d %d\n", st.current_count, st.current_count_change);
+					std::cout << myWaitsetInfo->me() << "Writer Subs: " 
+                    << st.current_count << "  " << st.current_count_change << std::endl;
                 }
             } else {
                 // writers can only have status condition
-                myWaitsetInfo->print_myname();
-                printf ("Writer: False Writer Event Trigger");
+                std::cout << myWaitsetInfo->me() << " Writer: False Writer Event Trigger" << std::endl;
             }
         }
 	} // While (run_flag)
 	end_writer_thread: // reached by ^C or an error
-	printf("Writer: Pthread Exiting\n");
+	std::cout << myWaitsetInfo->me() << " Writer: Pthread Exiting"<< std::endl;
 	exit(0);
 }
 
@@ -130,9 +127,8 @@ class WaitsetReaderInfo {
         WaitsetReaderInfo(std::string readerName) {
             myName = readerName;
         };
-        void print_myname() {
-            std::cout << myName << std::endl;
-        }
+        std::string me() {return myName;}
+
         DDSDynamicDataReader * reader;
 		bool * run_flag;
     private:
@@ -150,8 +146,7 @@ void*  pthreadToProcReaderEvents(void *waitsetReaderInfo) {
 	DDS_DynamicDataSeq patient_config_data_seq;
 	DDS_SampleInfoSeq patient_config_info_seq;
 
-    printf("Created Reader Pthread: ");
-    myWaitsetInfo->print_myname();
+    std::cout << "Created Reader Pthread: " << myWaitsetInfo->me() << std::endl;
 
     // Create read condition
     read_condition = myWaitsetInfo->reader->create_readcondition(
@@ -214,8 +209,8 @@ void*  pthreadToProcReaderEvents(void *waitsetReaderInfo) {
                 if (triggeredmask & DDS_SUBSCRIPTION_MATCHED_STATUS) {
                     DDS_SubscriptionMatchedStatus st;
                     myWaitsetInfo->reader->get_subscription_matched_status(st);
-                    myWaitsetInfo->print_myname();
-					printf("Reader thread: Pubs: %d %d\n", st.current_count, st.current_count_change);
+                    std::cout << myWaitsetInfo->me() << "Reader Pubs: " 
+                    << st.current_count << "  " << st.current_count_change << std::endl;
                 }
             } else if (active_conditions_seq[i] == read_condition) { 
                 // Get the latest samples
@@ -231,7 +226,10 @@ void*  pthreadToProcReaderEvents(void *waitsetReaderInfo) {
 							retcode=patient_config_data_seq[i].get_ulong(myPatientConfigInfo.pulse_low_threshold,
 									"PulseLowThreshold", DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED);
 							if (retcode != DDS_RETCODE_OK) goto end_reader_thread;
-							printf("Reader Thread: PHT %d, PLT %d\n", myPatientConfigInfo.pulse_high_threshold, myPatientConfigInfo.pulse_low_threshold);
+							std::cout << myWaitsetInfo->me() << " Reader: PHT " 
+                            << myPatientConfigInfo.pulse_high_threshold  
+                            << " PLT " << myPatientConfigInfo.pulse_low_threshold
+                            << std::endl;
                             fflush(stdout);
 						}
 					}
@@ -250,7 +248,7 @@ void*  pthreadToProcReaderEvents(void *waitsetReaderInfo) {
 		}
 	} // While (run_flag)
 	end_reader_thread: // reached by ^C or an error
-	printf("Reader thread: Pthread Exiting\n");
+	std::cout << myWaitsetInfo->me() << " Reader: Pthread Exiting"<< std::endl;
 	exit(0);
 }
 
@@ -317,7 +315,7 @@ extern "C" int pulse_main(int domainId) {
 
     WaitsetWriterInfo * myWaitsetPatientPulseWriterInfo = new WaitsetWriterInfo("PatientPulseTopic"); 
 	WaitsetWriterInfo * myWaitsetPatientInfoWriterInfo = new WaitsetWriterInfo("PatientInfoTopic"); 
-    WaitsetReaderInfo * myWaitsetPatientConfigReaderInfo = new WaitsetReaderInfo("PatientConfifTopic");
+    WaitsetReaderInfo * myWaitsetPatientConfigReaderInfo = new WaitsetReaderInfo("PatientConfigTopic");
 
     /* Initialize serial port */
 	/*
