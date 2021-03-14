@@ -39,8 +39,16 @@ void handle_SIGINT(int unused)
 class WaitsetWriterInfo {
     // holds waitset info needed for the writer waitset processing thread
     public:
+        WaitsetWriterInfo(std::string writerName) {
+            myName = writerName;
+        }
+        void print_myname() {
+            std::cout << myName << std::endl;
+        }
         DDSDynamicDataWriter * writer;
 		bool * run_flag;
+    private:
+        std::string myName;
 } ;
 
 void*  pthreadToProcWriterEvents(void  * waitsetWriterInfo) {
@@ -50,7 +58,9 @@ void*  pthreadToProcWriterEvents(void  * waitsetWriterInfo) {
     DDS_ReturnCode_t retcode;
     DDSConditionSeq active_conditions_seq;
 
-    printf("Created Writer Pthread\n");
+    printf("Created Writer Pthread ");
+    myWaitsetInfo->print_myname();
+
     // Configure Waitset for Writer Status ****
     DDSStatusCondition *status_condition = myWaitsetInfo->writer->get_statuscondition();
     if (status_condition == NULL) {
@@ -98,11 +108,13 @@ void*  pthreadToProcWriterEvents(void  * waitsetWriterInfo) {
                 if (triggeredmask & DDS_PUBLICATION_MATCHED_STATUS) {
 					DDS_PublicationMatchedStatus st;
                 	myWaitsetInfo->writer->get_publication_matched_status(st);
-					printf("\nFooWriter Subs: %d %d\n", st.current_count, st.current_count_change);
+                    myWaitsetInfo->print_myname();
+					printf("Writer Subs: %d %d\n", st.current_count, st.current_count_change);
                 }
             } else {
                 // writers can only have status condition
-                printf ("FooWriter: False Writer Event Trigger");
+                myWaitsetInfo->print_myname();
+                printf ("Writer: False Writer Event Trigger");
             }
         }
 	} // While (run_flag)
@@ -115,8 +127,16 @@ void*  pthreadToProcWriterEvents(void  * waitsetWriterInfo) {
 class WaitsetReaderInfo {
     // holds waitset info needed for the Reader waitset processing thread
     public:
+        WaitsetReaderInfo(std::string readerName) {
+            myName = readerName;
+        };
+        void print_myname() {
+            std::cout << myName << std::endl;
+        }
         DDSDynamicDataReader * reader;
 		bool * run_flag;
+    private:
+        std::string myName;
 } ;
 
 void*  pthreadToProcReaderEvents(void *waitsetReaderInfo) {
@@ -130,7 +150,8 @@ void*  pthreadToProcReaderEvents(void *waitsetReaderInfo) {
 	DDS_DynamicDataSeq patient_config_data_seq;
 	DDS_SampleInfoSeq patient_config_info_seq;
 
-    printf("Created Reader Pthread\n");
+    printf("Created Reader Pthread: ");
+    myWaitsetInfo->print_myname();
 
     // Create read condition
     read_condition = myWaitsetInfo->reader->create_readcondition(
@@ -193,7 +214,8 @@ void*  pthreadToProcReaderEvents(void *waitsetReaderInfo) {
                 if (triggeredmask & DDS_SUBSCRIPTION_MATCHED_STATUS) {
                     DDS_SubscriptionMatchedStatus st;
                     myWaitsetInfo->reader->get_subscription_matched_status(st);
-					printf("\nReader thread: Pubs: %d %d\n", st.current_count, st.current_count_change);
+                    myWaitsetInfo->print_myname();
+					printf("Reader thread: Pubs: %d %d\n", st.current_count, st.current_count_change);
                 }
             } else if (active_conditions_seq[i] == read_condition) { 
                 // Get the latest samples
@@ -293,6 +315,10 @@ extern "C" int pulse_main(int domainId) {
     DDS_Short bpm;  // local copy read from arduino
     uint32_t readings[READINGS_PER_TOPIC];
 
+    WaitsetWriterInfo * myWaitsetPatientPulseWriterInfo = new WaitsetWriterInfo("PatientPulseTopic"); 
+	WaitsetWriterInfo * myWaitsetPatientInfoWriterInfo = new WaitsetWriterInfo("PatientInfoTopic"); 
+    WaitsetReaderInfo * myWaitsetPatientConfigReaderInfo = new WaitsetReaderInfo("PatientConfifTopic");
+
     /* Initialize serial port */
 	/*
     if (RS232_OpenComport(cport_nr, baudRate, mode, 0))
@@ -323,14 +349,14 @@ extern "C" int pulse_main(int domainId) {
 		"MedicalParticipantLibrary1::RaspberryPiParticipant1");
 	if (participant == NULL) {
 		fprintf(stderr, "create participant error\n");
-		goto pulse_main_end;
+		//goto pulse_main_end;
 	}
 
 	patient_pulse_writer = DDSDynamicDataWriter::narrow(
         participant->lookup_datawriter_by_name("RaspberryPiPublisher1::PatientPulseTopicWriter"));
     if (patient_pulse_writer == NULL) {
         fprintf(stderr, "PatientPulseWriter: lookup_datawriter_by_name error\n"); 
-		goto pulse_main_end;
+		//goto pulse_main_end;
     }
 
     patient_info_writer = DDSDynamicDataWriter::narrow(
@@ -338,7 +364,7 @@ extern "C" int pulse_main(int domainId) {
         participant->lookup_datawriter_by_name("RaspberryPiPublisher1::PatientInfoTopicWriter"));
     if (patient_info_writer  == NULL) {
         fprintf(stderr, "PatientInfoTopicWriter: lookup_datawriter_by_name error\n"); 
-		goto pulse_main_end;
+		//goto pulse_main_end;
     }
 
  	patient_config_reader = DDSDynamicDataReader::narrow(
@@ -346,27 +372,24 @@ extern "C" int pulse_main(int domainId) {
 		participant->lookup_datareader_by_name("RaspberryPiSubscriber1::PatientConfigTopicReader")); 
     if (patient_config_reader == NULL) {
         fprintf(stderr, "PatientConfigTopicReader: lookup_datareader_by_name error\n");
-		goto pulse_main_end;
+		//goto pulse_main_end;
     }    
 
  	// Turn up a waitset threads and hang on them for writer events and reader events and data
-    WaitsetWriterInfo myWaitsetPatientPulseWriterInfo;
-    myWaitsetPatientPulseWriterInfo.writer = patient_pulse_writer;
-	myWaitsetPatientPulseWriterInfo.run_flag = &run_flag;
+    myWaitsetPatientPulseWriterInfo->writer = patient_pulse_writer;
+	myWaitsetPatientPulseWriterInfo->run_flag = &run_flag;
     pthread_t wpp_tid;
-    pthread_create(&wpp_tid, NULL, pthreadToProcWriterEvents, (void*) &myWaitsetPatientPulseWriterInfo);
+    pthread_create(&wpp_tid, NULL, pthreadToProcWriterEvents, (void*) myWaitsetPatientPulseWriterInfo);
 
-	WaitsetWriterInfo myWaitsetPatientInfoWriterInfo;
-    myWaitsetPatientInfoWriterInfo.writer = patient_info_writer;
-	myWaitsetPatientInfoWriterInfo.run_flag = &run_flag;
+    myWaitsetPatientInfoWriterInfo->writer = patient_info_writer;
+	myWaitsetPatientInfoWriterInfo->run_flag = &run_flag;
     pthread_t wpi_tid;
-    pthread_create(&wpi_tid, NULL, pthreadToProcWriterEvents, (void*) &myWaitsetPatientInfoWriterInfo);
+    pthread_create(&wpi_tid, NULL, pthreadToProcWriterEvents, (void*) myWaitsetPatientInfoWriterInfo);
 
-    WaitsetReaderInfo myWaitsetPatientConfigReaderInfo;
-    myWaitsetPatientConfigReaderInfo.reader = patient_config_reader;
-	myWaitsetPatientConfigReaderInfo.run_flag = &run_flag;
+    myWaitsetPatientConfigReaderInfo->reader = patient_config_reader;
+	myWaitsetPatientConfigReaderInfo->run_flag = &run_flag;
     pthread_t rpc_tid;
-    pthread_create(&rpc_tid, NULL, pthreadToProcReaderEvents, (void*) &myWaitsetPatientConfigReaderInfo);
+    pthread_create(&rpc_tid, NULL, pthreadToProcReaderEvents, (void*) myWaitsetPatientConfigReaderInfo);
 
     patient_info_data = patient_info_writer->create_data(DDS_DYNAMIC_DATA_PROPERTY_DEFAULT);
     if (patient_info_data == NULL) {
