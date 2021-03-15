@@ -347,14 +347,14 @@ extern "C" int pulse_main(int domainId) {
 		"MedicalParticipantLibrary1::RaspberryPiParticipant1");
 	if (participant == NULL) {
 		fprintf(stderr, "create participant error\n");
-		//goto pulse_main_end;
+		goto pulse_main_end;
 	}
 
 	patient_pulse_writer = DDSDynamicDataWriter::narrow(
         participant->lookup_datawriter_by_name("RaspberryPiPublisher1::PatientPulseTopicWriter"));
     if (patient_pulse_writer == NULL) {
         fprintf(stderr, "PatientPulseWriter: lookup_datawriter_by_name error\n"); 
-		//goto pulse_main_end;
+		goto pulse_main_end;
     }
 
     patient_info_writer = DDSDynamicDataWriter::narrow(
@@ -362,7 +362,7 @@ extern "C" int pulse_main(int domainId) {
         participant->lookup_datawriter_by_name("RaspberryPiPublisher1::PatientInfoTopicWriter"));
     if (patient_info_writer  == NULL) {
         fprintf(stderr, "PatientInfoTopicWriter: lookup_datawriter_by_name error\n"); 
-		//goto pulse_main_end;
+		goto pulse_main_end;
     }
 
  	patient_config_reader = DDSDynamicDataReader::narrow(
@@ -370,7 +370,7 @@ extern "C" int pulse_main(int domainId) {
 		participant->lookup_datareader_by_name("RaspberryPiSubscriber1::PatientConfigTopicReader")); 
     if (patient_config_reader == NULL) {
         fprintf(stderr, "PatientConfigTopicReader: lookup_datareader_by_name error\n");
-		//goto pulse_main_end;
+		goto pulse_main_end;
     }    
 
  	// Turn up a waitset threads and hang on them for writer events and reader events and data
